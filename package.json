@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@shyzg/discord.js-selfbot",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "node --test --test-force-exit test/*.test.js && pnpm run test:typescript",
+    "test:typescript": "tsc --noEmit && tsd",
+    "lint": "prettier --check . && eslint src typings",
+    "format": "prettier --write . && eslint --fix src",
+    "fmt": "pnpm run format",
+    "prepack": "pnpm run lint && pnpm run test && node ./scripts/esmDts.mjs"
+  },
+  "main": "./src/index.js",
+  "types": "./typings/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./typings/index.d.mts",
+        "default": "./src/index.js"
+      },
+      "require": {
+        "types": "./typings/index.d.ts",
+        "default": "./src/index.js"
+      }
+    }
+  },
+  "directories": {
+    "lib": "src",
+    "test": "test"
+  },
+  "files": [
+    "src",
+    "typings/*.d.ts",
+    "typings/*.d.mts"
+  ],
+  "license": "Apache-2.0",
+  "keywords": [
+    "api",
+    "client",
+    "discord",
+    "discordapp",
+    "discordjs",
+    "node",
+    "selfbot"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shyzg/discord.js-selfbot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Shyzg/discord.js-selfbot/issues"
+  },
+  "dependencies": {
+    "@discordjs/builders": "^1.15.0",
+    "@discordjs/collection": "2.1.1",
+    "@discordjs/formatters": "^0.6.2",
+    "@discordjs/rest": "^2.6.3",
+    "@discordjs/util": "^1.2.0",
+    "@discordjs/ws": "^2.0.4",
+    "@sapphire/snowflake": "4.0.0",
+    "discord-api-types": "^0.38.60",
+    "fast-deep-equal": "3.1.3",
+    "lodash.snakecase": "4.1.1",
+    "magic-bytes.js": "^1.13.1",
+    "tslib": "^2.9.1",
+    "undici": "^8.13.1",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "^24.19.2",
+    "@typescript-eslint/eslint-plugin": "^8.73.0",
+    "@typescript-eslint/parser": "^8.73.0",
+    "eslint": "^10.15.0",
+    "eslint-plugin-import": "^2.32.0",
+    "prettier": "^3.10.1",
+    "tsd": "^0.33.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=24.22.3"
+  }
+}
