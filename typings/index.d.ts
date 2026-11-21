@@ -1,21 +1,26 @@
+import { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { Stream } from 'node:stream';
+import { MessagePort, Worker } from 'node:worker_threads';
 import {
+  AnyComponentBuilder,
+  ApplicationCommandOptionAllowedChannelTypes,
   ActionRowBuilder as BuilderActionRow,
-  MessageActionRowComponentBuilder,
   ButtonBuilder as BuilderButtonComponent,
-  EmbedBuilder as BuildersEmbed,
   ChannelSelectMenuBuilder as BuilderChannelSelectMenuComponent,
   MentionableSelectMenuBuilder as BuilderMentionableSelectMenuComponent,
   RoleSelectMenuBuilder as BuilderRoleSelectMenuComponent,
   StringSelectMenuBuilder as BuilderStringSelectMenuComponent,
-  UserSelectMenuBuilder as BuilderUserSelectMenuComponent,
-  TextInputBuilder as BuilderTextInputComponent,
-  SelectMenuOptionBuilder as BuildersSelectMenuOption,
-  ModalActionRowComponentBuilder,
+  EmbedBuilder as BuildersEmbed,
   ModalBuilder as BuildersModal,
-  AnyComponentBuilder,
+  SelectMenuOptionBuilder as BuildersSelectMenuOption,
+  TextInputBuilder as BuilderTextInputComponent,
+  UserSelectMenuBuilder as BuilderUserSelectMenuComponent,
+  MessageActionRowComponentBuilder,
+  ModalActionRowComponentBuilder,
   type RestOrArray,
-  ApplicationCommandOptionAllowedChannelTypes,
 } from '@discordjs/builders';
+import { Collection, ReadonlyCollection } from '@discordjs/collection';
 import {
   blockQuote,
   bold,
@@ -30,214 +35,209 @@ import {
   roleMention,
   spoiler,
   strikethrough,
-  time,
   TimestampStyles,
+  time,
   underscore,
   userMention,
 } from '@discordjs/formatters';
-import { Awaitable, JSONEncodable } from '@discordjs/util';
-import { Collection, ReadonlyCollection } from '@discordjs/collection';
 import {
   BaseImageURLOptions,
   EmojiURLOptions,
+  ImageSize,
   ImageURLOptions,
   RawFile,
   REST,
   RESTOptions,
-  ImageSize,
 } from '@discordjs/rest';
+import { Awaitable, JSONEncodable } from '@discordjs/util';
 import {
-  WebSocketManager as WSWebSocketManager,
-  IShardingStrategy,
   IIdentifyThrottler,
+  IShardingStrategy,
   SessionInfo,
+  WebSocketManager as WSWebSocketManager,
 } from '@discordjs/ws';
 import {
+  ActivityFlags,
+  ActivityLocationKind,
+  ActivityType,
+  APIActionRowComponent,
   APIActivityInstance,
   APIActivityLocation,
-  ActivityLocationKind,
-  APIActionRowComponent,
   APIApplicationCommandInteractionData,
   APIApplicationCommandOption,
+  APIApplicationRoleConnectionMetadata,
+  APIAttachment,
   APIAuditLogChange,
+  APIAuthorizingIntegrationOwnersMap,
+  APIAutoModerationRule,
   APIButtonComponent,
+  APIChannel,
+  APIChannelSelectComponent,
+  APIChatInputApplicationCommandInteractionData,
+  APIComponentInActionRow,
+  APIComponentInContainer,
+  APIComponentInMessageActionRow,
+  APIComponentInModalActionRow,
+  APIContainerComponent,
+  APIContextMenuInteractionData,
   APIEmbed,
+  APIEmbedAuthor,
+  APIEmbedField,
+  APIEmbedFooter,
+  APIEmbedImage,
+  APIEmbedProvider,
   APIEmoji,
+  APIEntitlement,
+  APIFileComponent,
+  APIGuildMember,
+  APIGuildOnboardingPrompt,
+  APIGuildOnboardingPromptOption,
   APIInteractionDataResolvedChannel,
   APIInteractionDataResolvedGuildMember,
   APIInteractionGuildMember,
+  APIInviteRole,
   APILabelComponent,
+  APIMediaGalleryComponent,
+  APIMediaGalleryItem,
+  APIMentionableSelectComponent,
   APIMessage,
+  APIMessageChannelSelectInteractionData,
   APIMessageComponent,
+  APIMessageComponentEmoji,
+  APIMessageMentionableSelectInteractionData,
+  APIMessageRoleSelectInteractionData,
   APIMessageSharedClientTheme,
+  APIMessageStringSelectInteractionData,
+  APIMessageTopLevelComponent,
+  APIMessageUserSelectInteractionData,
+  APIModalComponent,
+  APIModalInteractionResponseCallbackData,
+  APIModalSubmitInteraction,
   APIOverwrite,
   APIPartialChannel,
   APIPartialEmoji,
   APIPartialGuild,
+  APIPoll,
+  APIPollAnswer,
   APIRole,
+  APIRoleSelectComponent,
+  APISectionComponent,
   APISelectMenuComponent,
+  APISelectMenuDefaultValue,
+  APISelectMenuOption,
+  APISeparatorComponent,
+  APISKU,
+  APISoundboardSound,
+  APIStringSelectComponent,
+  APISubscription,
   APITemplateSerializedSourceGuild,
+  APITextDisplayComponent,
+  APITextInputComponent,
+  APIThumbnailComponent,
+  APIUnfurledMediaItem,
   APIUser,
+  APIUserSelectComponent,
+  ApplicationCommandOptionType,
+  ApplicationCommandPermissionType,
+  ApplicationCommandType,
+  ApplicationFlags,
+  ApplicationIntegrationType,
+  ApplicationRoleConnectionMetadataType,
+  ApplicationWebhookEventStatus,
+  ApplicationWebhookEventType,
+  AttachmentFlags,
+  AuditLogEvent,
+  AuditLogOptionsType,
+  AuditLogRuleTriggerType,
+  AutoModerationActionType,
+  AutoModerationRuleEventType,
+  AutoModerationRuleKeywordPresetType,
+  AutoModerationRuleTriggerType,
   BaseThemeType,
   ButtonStyle,
+  ChannelFlags,
   ChannelType,
   ComponentType,
+  EmbedType,
+  EntitlementType,
+  EntryPointCommandHandlerType,
   FileUploadType,
+  FormattingPatterns,
+  ForumLayoutType,
+  GatewayAutoModerationActionExecutionDispatchData,
   GatewayDispatchEvents,
+  GatewayIntentBits,
+  GatewayVoiceChannelEffectSendDispatchData,
   GatewayVoiceServerUpdateDispatchData,
   GatewayVoiceStateUpdateDispatchData,
+  GuildDefaultMessageNotifications,
+  GuildExplicitContentFilter,
   GuildFeature,
+  GuildMemberFlags,
   GuildMFALevel,
   GuildNSFWLevel,
+  GuildOnboardingMode,
+  GuildOnboardingPromptType,
   GuildPremiumTier,
+  GuildScheduledEventEntityType,
+  GuildScheduledEventPrivacyLevel,
+  GuildScheduledEventRecurrenceRuleFrequency,
+  GuildScheduledEventRecurrenceRuleMonth,
+  GuildScheduledEventRecurrenceRuleWeekday,
+  GuildScheduledEventStatus,
+  GuildSystemChannelFlags,
   GuildVerificationLevel,
-  Locale,
+  GuildWidgetStyle,
+  ImageFormat,
+  IntegrationExpireBehavior,
+  InteractionContextType,
+  InteractionResponseType,
   InteractionType,
+  InviteFlags,
   InviteTargetType,
   InviteTargetUsersJobStatus,
+  InviteType,
+  Locale,
+  LocalizationMap,
+  MessageActivityType,
+  MessageFlags,
+  MessageReferenceType,
   MessageType,
   NameplatePalette,
   OAuth2Scopes,
+  OverwriteType,
+  PermissionFlagsBits,
+  PollLayoutType,
+  RESTAPIInteractionCallbackActivityInstanceResource,
+  RESTAPIInteractionCallbackObject,
+  RESTAPIInteractionCallbackResourceObject,
+  RESTGetAPIGuildOnboardingResult,
+  RESTGetAPIGuildThreadsResult,
   RESTPostAPIApplicationCommandsJSONBody,
+  RESTPostAPIInteractionCallbackWithResponseResult,
+  ReactionType,
+  RoleFlags,
+  SelectMenuDefaultValueType,
+  SeparatorSpacingSize,
+  SKUFlags,
+  SKUType,
   Snowflake,
+  SortOrderType,
   StageInstancePrivacyLevel,
   StickerFormatType,
   StickerType,
+  SubscriptionStatus,
   TeamMemberMembershipState,
-  WebhookType,
-  OverwriteType,
-  GuildExplicitContentFilter,
-  GuildDefaultMessageNotifications,
-  ApplicationCommandPermissionType,
-  ApplicationCommandOptionType,
-  ApplicationCommandType,
-  ActivityType,
-  GuildScheduledEventEntityType,
-  GuildScheduledEventPrivacyLevel,
-  GuildScheduledEventStatus,
-  IntegrationExpireBehavior,
-  ApplicationFlags,
-  PermissionFlagsBits,
+  TeamMemberRole,
+  TextChannelType,
+  TextInputStyle,
+  ThreadAutoArchiveDuration,
   ThreadMemberFlags,
   UserFlags,
-  MessageFlags,
-  GuildSystemChannelFlags,
-  GatewayIntentBits,
-  ActivityFlags,
-  AuditLogEvent,
-  APIMessageComponentEmoji,
-  EmbedType,
-  APIComponentInActionRow,
-  APIModalInteractionResponseCallbackData,
-  APIModalSubmitInteraction,
-  APIComponentInMessageActionRow,
-  TextInputStyle,
-  APITextInputComponent,
-  APIComponentInModalActionRow,
-  APIModalComponent,
-  APISelectMenuOption,
-  APIEmbedField,
-  APIEmbedAuthor,
-  APIEmbedFooter,
-  APIEmbedImage,
   VideoQualityMode,
-  LocalizationMap,
-  MessageActivityType,
-  APIAttachment,
-  APIChannel,
-  ThreadAutoArchiveDuration,
-  FormattingPatterns,
-  APIEmbedProvider,
-  AuditLogOptionsType,
-  TextChannelType,
-  ChannelFlags,
-  SortOrderType,
-  APIMessageStringSelectInteractionData,
-  APIMessageUserSelectInteractionData,
-  APIStringSelectComponent,
-  APIUserSelectComponent,
-  APIRoleSelectComponent,
-  APIMentionableSelectComponent,
-  APIChannelSelectComponent,
-  APIGuildMember,
-  APIMessageRoleSelectInteractionData,
-  APIMessageMentionableSelectInteractionData,
-  APIMessageChannelSelectInteractionData,
-  AutoModerationRuleKeywordPresetType,
-  AutoModerationActionType,
-  AutoModerationRuleEventType,
-  AutoModerationRuleTriggerType,
-  AuditLogRuleTriggerType,
-  GatewayAutoModerationActionExecutionDispatchData,
-  APIAutoModerationRule,
-  ForumLayoutType,
-  ApplicationRoleConnectionMetadataType,
-  APIApplicationRoleConnectionMetadata,
-  ImageFormat,
-  GuildMemberFlags,
-  RESTGetAPIGuildThreadsResult,
-  RESTGetAPIGuildOnboardingResult,
-  APIGuildOnboardingPrompt,
-  APIGuildOnboardingPromptOption,
-  GuildOnboardingPromptType,
-  AttachmentFlags,
-  RoleFlags,
-  TeamMemberRole,
-  GuildWidgetStyle,
-  GuildOnboardingMode,
-  APISKU,
-  SKUFlags,
-  SKUType,
-  APIEntitlement,
-  EntitlementType,
-  ApplicationIntegrationType,
-  InteractionContextType,
-  APIPoll,
-  PollLayoutType,
-  APIPollAnswer,
-  APISelectMenuDefaultValue,
-  SelectMenuDefaultValueType,
-  InviteType,
-  ReactionType,
-  APIAuthorizingIntegrationOwnersMap,
-  MessageReferenceType,
-  GuildScheduledEventRecurrenceRuleWeekday,
-  GuildScheduledEventRecurrenceRuleMonth,
-  GuildScheduledEventRecurrenceRuleFrequency,
-  APISubscription,
-  SubscriptionStatus,
-  ApplicationWebhookEventStatus,
-  ApplicationWebhookEventType,
-  RESTPostAPIInteractionCallbackWithResponseResult,
-  RESTAPIInteractionCallbackObject,
-  RESTAPIInteractionCallbackResourceObject,
-  InteractionResponseType,
-  RESTAPIInteractionCallbackActivityInstanceResource,
   VoiceChannelEffectSendAnimationType,
-  GatewayVoiceChannelEffectSendDispatchData,
-  APIChatInputApplicationCommandInteractionData,
-  APIContextMenuInteractionData,
-  APISoundboardSound,
-  APIComponentInContainer,
-  APIContainerComponent,
-  APIThumbnailComponent,
-  APISectionComponent,
-  APITextDisplayComponent,
-  APIUnfurledMediaItem,
-  APIMediaGalleryItem,
-  APIMediaGalleryComponent,
-  APISeparatorComponent,
-  SeparatorSpacingSize,
-  APIFileComponent,
-  APIMessageTopLevelComponent,
-  EntryPointCommandHandlerType,
-  InviteFlags,
-  APIInviteRole,
+  WebhookType,
 } from 'discord-api-types/v10';
-import { ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import { Stream } from 'node:stream';
-import { MessagePort, Worker } from 'node:worker_threads';
 import {
   RawActivityData,
   RawAnonymousGuildData,
@@ -367,9 +367,8 @@ export type ActionRowComponentData = MessageActionRowComponentData | ModalAction
 
 export type ActionRowComponent = MessageActionRowComponent | ModalActionRowComponent;
 
-export interface ActionRowData<
-  ComponentType extends JSONEncodable<APIComponentInActionRow> | ActionRowComponentData,
-> extends BaseComponentData {
+export interface ActionRowData<ComponentType extends JSONEncodable<APIComponentInActionRow> | ActionRowComponentData>
+  extends BaseComponentData {
   components: readonly ComponentType[];
 }
 
@@ -1130,7 +1129,8 @@ type AsyncEventIteratorDisposability =
   ReturnType<typeof EventEmitter.on> extends AsyncDisposable ? AsyncDisposable : {};
 /** @internal */
 interface AsyncEventIterator<Params extends any[]>
-  extends AsyncIterableIterator<Params>, AsyncEventIteratorDisposability {
+  extends AsyncIterableIterator<Params>,
+    AsyncEventIteratorDisposability {
   [Symbol.asyncIterator](): AsyncEventIterator<Params>;
 }
 
@@ -1310,7 +1310,8 @@ export type ComponentInContainerData =
 
 export interface ContainerComponentData<
   ComponentType extends JSONEncodable<APIComponentInContainer> | ComponentInContainerData =
-    JSONEncodable<APIComponentInContainer> | ComponentInContainerData,
+    | JSONEncodable<APIComponentInContainer>
+    | ComponentInContainerData,
 > extends BaseComponentData {
   components: readonly ComponentType[];
   accentColor?: number;
@@ -1536,10 +1537,11 @@ export class PrimaryEntryPointCommandInteraction<
 }
 
 // tslint:disable-next-line no-empty-interface
-export interface DMChannel extends Omit<
-  TextBasedChannelFields<false, true>,
-  'bulkDelete' | 'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
-> {}
+export interface DMChannel
+  extends Omit<
+    TextBasedChannelFields<false, true>,
+    'bulkDelete' | 'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
+  > {}
 export class DMChannel extends BaseChannel {
   private constructor(client: Client<true>, data?: RawDMChannelData);
   public flags: Readonly<ChannelFlagsBitField>;
@@ -2438,9 +2440,9 @@ export interface AwaitMessageCollectorOptionsParams<
   ComponentType extends MessageComponentType,
   Cached extends boolean = boolean,
 > extends Pick<
-  InteractionCollectorOptions<MappedInteractionTypes<Cached>[ComponentType]>,
-  keyof AwaitMessageComponentOptions<any>
-> {
+    InteractionCollectorOptions<MappedInteractionTypes<Cached>[ComponentType]>,
+    keyof AwaitMessageComponentOptions<any>
+  > {
   componentType?: ComponentType;
 }
 
@@ -2873,13 +2875,14 @@ export interface TextInputModalData extends BaseModalData<ComponentType.TextInpu
   value: string;
 }
 
-export interface SelectMenuModalData<Cached extends CacheType = CacheType> extends BaseModalData<
-  | ComponentType.ChannelSelect
-  | ComponentType.MentionableSelect
-  | ComponentType.RoleSelect
-  | ComponentType.StringSelect
-  | ComponentType.UserSelect
-> {
+export interface SelectMenuModalData<Cached extends CacheType = CacheType>
+  extends BaseModalData<
+    | ComponentType.ChannelSelect
+    | ComponentType.MentionableSelect
+    | ComponentType.RoleSelect
+    | ComponentType.StringSelect
+    | ComponentType.UserSelect
+  > {
   channels?: ReadonlyCollection<
     Snowflake,
     CacheTypeReducer<Cached, GuildBasedChannel, APIInteractionDataResolvedChannel>
@@ -3003,9 +3006,8 @@ export class ModalSubmitFields<Cached extends CacheType = CacheType> {
   public getCheckbox(customId: string): boolean;
 }
 
-export interface ModalMessageModalSubmitInteraction<
-  Cached extends CacheType = CacheType,
-> extends ModalSubmitInteraction<Cached> {
+export interface ModalMessageModalSubmitInteraction<Cached extends CacheType = CacheType>
+  extends ModalSubmitInteraction<Cached> {
   message: Message<BooleanCache<Cached>>;
   channelId: Snowflake;
   update(
@@ -3091,18 +3093,19 @@ export class OAuth2Guild extends BaseGuild {
   public permissions: Readonly<PermissionsBitField>;
 }
 
-export interface PartialGroupDMChannel extends Omit<
-  TextBasedChannelFields<false, false>,
-  | 'bulkDelete'
-  | 'send'
-  | 'sendTyping'
-  | 'createMessageCollector'
-  | 'awaitMessages'
-  | 'fetchWebhooks'
-  | 'createWebhook'
-  | 'setRateLimitPerUser'
-  | 'setNSFW'
-> {}
+export interface PartialGroupDMChannel
+  extends Omit<
+    TextBasedChannelFields<false, false>,
+    | 'bulkDelete'
+    | 'send'
+    | 'sendTyping'
+    | 'createMessageCollector'
+    | 'awaitMessages'
+    | 'fetchWebhooks'
+    | 'createWebhook'
+    | 'setRateLimitPerUser'
+    | 'setNSFW'
+  > {}
 export class PartialGroupDMChannel extends BaseChannel {
   private constructor(client: Client<true>, data: RawPartialGroupDMChannelData);
   public type: ChannelType.GroupDM;
@@ -3137,19 +3140,20 @@ export interface DefaultReactionEmoji {
   name: string | null;
 }
 
-export interface ThreadOnlyChannel extends Omit<
-  TextBasedChannelFields,
-  | 'send'
-  | 'lastMessage'
-  | 'lastPinAt'
-  | 'bulkDelete'
-  | 'sendTyping'
-  | 'createMessageCollector'
-  | 'awaitMessages'
-  | 'createMessageComponentCollector'
-  | 'awaitMessageComponent'
-  | 'messages'
-> {}
+export interface ThreadOnlyChannel
+  extends Omit<
+    TextBasedChannelFields,
+    | 'send'
+    | 'lastMessage'
+    | 'lastPinAt'
+    | 'bulkDelete'
+    | 'sendTyping'
+    | 'createMessageCollector'
+    | 'awaitMessages'
+    | 'createMessageComponentCollector'
+    | 'awaitMessageComponent'
+    | 'messages'
+  > {}
 export abstract class ThreadOnlyChannel extends GuildChannel {
   public type: ChannelType.GuildForum | ChannelType.GuildMedia;
   public threads: GuildForumThreadManager;
@@ -3688,9 +3692,9 @@ export interface FetchRecommendedShardCountOptions {
 }
 
 export {
+  DeconstructedSnowflake,
   DiscordSnowflake as SnowflakeUtil,
   SnowflakeGenerateOptions,
-  DeconstructedSnowflake,
 } from '@sapphire/snowflake';
 
 export class SKU extends Base {
@@ -3943,10 +3947,8 @@ export interface PrivateThreadChannel extends ThreadChannel<false> {
 }
 
 // tslint:disable-next-line no-empty-interface
-export interface ThreadChannel<ThreadOnly extends boolean = boolean> extends Omit<
-  TextBasedChannelFields<true>,
-  'fetchWebhooks' | 'createWebhook' | 'setNSFW'
-> {}
+export interface ThreadChannel<ThreadOnly extends boolean = boolean>
+  extends Omit<TextBasedChannelFields<true>, 'fetchWebhooks' | 'createWebhook' | 'setNSFW'> {}
 export class ThreadChannel<ThreadOnly extends boolean = boolean> extends BaseChannel {
   private constructor(guild: Guild, data: RawThreadChannelData, client?: Client<true>);
   public archived: boolean | null;
@@ -4179,13 +4181,7 @@ export function makeError(obj: MakeErrorOptions): Error;
 /** @internal */
 export function makePlainError(err: Error): MakeErrorOptions;
 /** @internal */
-export function moveElementInArray(
-  // eslint-disable-next-line no-restricted-syntax
-  array: unknown[],
-  element: unknown,
-  newIndex: number,
-  offset?: boolean,
-): number;
+export function moveElementInArray(array: unknown[], element: unknown, newIndex: number, offset?: boolean): number;
 export function parseEmoji(text: string): PartialEmoji | null;
 export function resolveColor(color: ColorResolvable): number;
 /** @internal */
@@ -4530,7 +4526,10 @@ export class WelcomeScreen extends Base {
 //#region Constants
 
 export type NonSystemMessageType =
-  MessageType.Default | MessageType.Reply | MessageType.ChatInputCommand | MessageType.ContextMenuCommand;
+  | MessageType.Default
+  | MessageType.Reply
+  | MessageType.ChatInputCommand
+  | MessageType.ContextMenuCommand;
 
 export type UndeletableMessageType =
   | MessageType.RecipientAdd
@@ -5500,10 +5499,8 @@ export interface PartialTextBasedChannelFields<InGuild extends boolean = boolean
   send(options: string | MessagePayload | MessageCreateOptions): Promise<Message<InGuild>>;
 }
 
-export interface TextBasedChannelFields<
-  InGuild extends boolean = boolean,
-  InDM extends boolean = boolean,
-> extends PartialTextBasedChannelFields<InGuild> {
+export interface TextBasedChannelFields<InGuild extends boolean = boolean, InDM extends boolean = boolean>
+  extends PartialTextBasedChannelFields<InGuild> {
   lastMessageId: Snowflake | null;
   get lastMessage(): Message | null;
   lastPinTimestamp: number | null;
@@ -5615,13 +5612,16 @@ export type CommandOptionDataTypeResolvable = ApplicationCommandOptionType;
 export type CommandOptionChannelResolvableType = ApplicationCommandOptionType.Channel;
 
 export type CommandOptionChoiceResolvableType =
-  ApplicationCommandOptionType.String | CommandOptionNumericResolvableType;
+  | ApplicationCommandOptionType.String
+  | CommandOptionNumericResolvableType;
 
 export type CommandOptionNumericResolvableType =
-  ApplicationCommandOptionType.Number | ApplicationCommandOptionType.Integer;
+  | ApplicationCommandOptionType.Number
+  | ApplicationCommandOptionType.Integer;
 
 export type CommandOptionSubOptionResolvableType =
-  ApplicationCommandOptionType.Subcommand | ApplicationCommandOptionType.SubcommandGroup;
+  | ApplicationCommandOptionType.Subcommand
+  | ApplicationCommandOptionType.SubcommandGroup;
 
 export type CommandOptionNonChoiceResolvableType = Exclude<
   CommandOptionDataTypeResolvable,
@@ -5711,30 +5711,24 @@ export interface ApplicationCommandAttachmentOption extends BaseApplicationComma
   type: ApplicationCommandOptionType.Attachment;
 }
 
-export interface ApplicationCommandAutocompleteNumericOption extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandAutocompleteNumericOption
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: CommandOptionNumericResolvableType;
   minValue?: number;
   maxValue?: number;
   autocomplete: true;
 }
 
-export interface ApplicationCommandAutocompleteStringOption extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandAutocompleteStringOption
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: ApplicationCommandOptionType.String;
   minLength?: number;
   maxLength?: number;
   autocomplete: true;
 }
 
-export interface ApplicationCommandAutocompleteNumericOptionData extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandAutocompleteNumericOptionData
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: CommandOptionNumericResolvableType;
   minValue?: number;
   min_value?: number;
@@ -5743,10 +5737,8 @@ export interface ApplicationCommandAutocompleteNumericOptionData extends Omit<
   autocomplete: true;
 }
 
-export interface ApplicationCommandAutocompleteStringOptionData extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandAutocompleteStringOptionData
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: ApplicationCommandOptionType.String;
   minLength?: number;
   min_length?: number;
@@ -5755,19 +5747,15 @@ export interface ApplicationCommandAutocompleteStringOptionData extends Omit<
   autocomplete: true;
 }
 
-export interface ApplicationCommandChoicesData<Type extends string | number = string | number> extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandChoicesData<Type extends string | number = string | number>
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: CommandOptionChoiceResolvableType;
   choices?: readonly ApplicationCommandOptionChoiceData<Type>[];
   autocomplete?: false;
 }
 
-export interface ApplicationCommandChoicesOption<Type extends string | number = string | number> extends Omit<
-  BaseApplicationCommandOptionsData,
-  'autocomplete'
-> {
+export interface ApplicationCommandChoicesOption<Type extends string | number = string | number>
+  extends Omit<BaseApplicationCommandOptionsData, 'autocomplete'> {
   type: CommandOptionChoiceResolvableType;
   choices?: readonly ApplicationCommandOptionChoiceData<Type>[];
   autocomplete?: false;
@@ -5899,7 +5887,11 @@ export type ChannelPermissionConstant = Snowflake;
 export type RolePermissionConstant = Snowflake;
 
 export type ApplicationCommandPermissionIdResolvable =
-  GuildChannelResolvable | RoleResolvable | UserResolvable | ChannelPermissionConstant | RolePermissionConstant;
+  | GuildChannelResolvable
+  | RoleResolvable
+  | UserResolvable
+  | ChannelPermissionConstant
+  | RolePermissionConstant;
 
 export type ApplicationCommandResolvable = ApplicationCommand | Snowflake;
 
@@ -5942,20 +5934,14 @@ export interface AutoModerationTriggerMetadata {
   mentionRaidProtectionEnabled: boolean;
 }
 
-export interface AwaitMessageComponentOptions<Interaction extends CollectedMessageInteraction> extends Omit<
-  MessageComponentCollectorOptions<Interaction>,
-  'max' | 'maxComponents' | 'maxUsers'
-> {}
+export interface AwaitMessageComponentOptions<Interaction extends CollectedMessageInteraction>
+  extends Omit<MessageComponentCollectorOptions<Interaction>, 'max' | 'maxComponents' | 'maxUsers'> {}
 
-export interface ModalSubmitInteractionCollectorOptions<Interaction extends ModalSubmitInteraction> extends Omit<
-  InteractionCollectorOptions<Interaction>,
-  'channel' | 'message' | 'guild' | 'interactionType'
-> {}
+export interface ModalSubmitInteractionCollectorOptions<Interaction extends ModalSubmitInteraction>
+  extends Omit<InteractionCollectorOptions<Interaction>, 'channel' | 'message' | 'guild' | 'interactionType'> {}
 
-export interface AwaitModalSubmitOptions<Interaction extends ModalSubmitInteraction> extends Omit<
-  ModalSubmitInteractionCollectorOptions<Interaction>,
-  'max' | 'maxComponents' | 'maxUsers'
-> {
+export interface AwaitModalSubmitOptions<Interaction extends ModalSubmitInteraction>
+  extends Omit<ModalSubmitInteractionCollectorOptions<Interaction>, 'max' | 'maxComponents' | 'maxUsers'> {
   time: number;
 }
 
@@ -6049,7 +6035,10 @@ export type CacheConstructors = {
 };
 
 type OverriddenCaches =
-  'DMMessageManager' | 'GuildForumThreadManager' | 'GuildMessageManager' | 'GuildTextThreadManager';
+  | 'DMMessageManager'
+  | 'GuildForumThreadManager'
+  | 'GuildMessageManager'
+  | 'GuildTextThreadManager';
 
 // This doesn't actually work the way it looks 😢.
 // Narrowing the type of `manager.name` doesn't propagate type information to `holds` and the return type.
@@ -6318,7 +6307,11 @@ export interface CollectorResetTimerOptions {
 }
 
 export type ColorResolvable =
-  keyof typeof Colors | 'Random' | readonly [red: number, green: number, blue: number] | number | HexColorString;
+  | keyof typeof Colors
+  | 'Random'
+  | readonly [red: number, green: number, blue: number]
+  | number
+  | HexColorString;
 
 export interface CommandInteractionOption<Cached extends CacheType = CacheType> {
   name: string;
@@ -6343,16 +6336,17 @@ export interface BaseInteractionResolvedData<Cached extends CacheType = CacheTyp
   users?: ReadonlyCollection<Snowflake, User>;
 }
 
-export interface CommandInteractionResolvedData<
-  Cached extends CacheType = CacheType,
-> extends BaseInteractionResolvedData<Cached> {
+export interface CommandInteractionResolvedData<Cached extends CacheType = CacheType>
+  extends BaseInteractionResolvedData<Cached> {
   messages?: ReadonlyCollection<Snowflake, CacheTypeReducer<Cached, Message, APIMessage>>;
 }
 
 export interface AutocompleteFocusedOption extends Pick<CommandInteractionOption, 'name'> {
   focused: true;
   type:
-    ApplicationCommandOptionType.String | ApplicationCommandOptionType.Integer | ApplicationCommandOptionType.Number;
+    | ApplicationCommandOptionType.String
+    | ApplicationCommandOptionType.Integer
+    | ApplicationCommandOptionType.Number;
   value: string;
 }
 
@@ -6555,7 +6549,10 @@ export interface EmbedField {
 }
 
 export type EmojiIdentifierResolvable =
-  EmojiResolvable | `${'' | 'a:'}${string}:${Snowflake}` | `<${'' | 'a'}:${string}:${Snowflake}>` | string;
+  | EmojiResolvable
+  | `${'' | 'a:'}${string}:${Snowflake}`
+  | `<${'' | 'a'}:${string}:${Snowflake}>`
+  | string;
 
 export type EmojiResolvable = Snowflake | GuildEmoji | ReactionEmoji | ApplicationEmoji;
 
@@ -6709,7 +6706,8 @@ export interface FetchThreadMembersWithoutGuildMemberDataOptions {
 }
 
 export type FetchThreadMembersOptions =
-  FetchThreadMembersWithGuildMemberDataOptions | FetchThreadMembersWithoutGuildMemberDataOptions;
+  | FetchThreadMembersWithGuildMemberDataOptions
+  | FetchThreadMembersWithoutGuildMemberDataOptions;
 
 export interface FetchThreadsOptions {
   archived?: FetchArchivedThreadOptions;
@@ -6725,7 +6723,8 @@ export interface AttachmentPayload {
 }
 
 export type GlobalSweepFilter<Key, Value> = () =>
-  ((value: Value, key: Key, collection: Collection<Key, Value>) => boolean) | null;
+  | ((value: Value, key: Key, collection: Collection<Key, Value>) => boolean)
+  | null;
 
 interface GuildAuditLogsTypes {
   [AuditLogEvent.GuildUpdate]: ['Guild', 'Update'];
@@ -7297,7 +7296,13 @@ export interface InviteGenerationOptions {
 }
 
 export type GuildInvitableChannelResolvable =
-  TextChannel | VoiceChannel | NewsChannel | StageChannel | ForumChannel | MediaChannel | Snowflake;
+  | TextChannel
+  | VoiceChannel
+  | NewsChannel
+  | StageChannel
+  | ForumChannel
+  | MediaChannel
+  | Snowflake;
 
 export interface InviteCreateOptions {
   temporary?: boolean;
@@ -7382,15 +7387,11 @@ export type CollectedMessageInteraction<Cached extends CacheType = CacheType> = 
   ModalSubmitInteraction
 >;
 
-export interface MessageComponentCollectorOptions<Interaction extends CollectedMessageInteraction> extends Omit<
-  InteractionCollectorOptions<Interaction>,
-  'channel' | 'message' | 'guild' | 'interactionType'
-> {}
+export interface MessageComponentCollectorOptions<Interaction extends CollectedMessageInteraction>
+  extends Omit<InteractionCollectorOptions<Interaction>, 'channel' | 'message' | 'guild' | 'interactionType'> {}
 
-export interface MessageChannelComponentCollectorOptions<Interaction extends CollectedMessageInteraction> extends Omit<
-  InteractionCollectorOptions<Interaction>,
-  'channel' | 'guild' | 'interactionType'
-> {}
+export interface MessageChannelComponentCollectorOptions<Interaction extends CollectedMessageInteraction>
+  extends Omit<InteractionCollectorOptions<Interaction>, 'channel' | 'guild' | 'interactionType'> {}
 
 export interface MessageInteractionMetadata {
   id: Snowflake;
@@ -7426,31 +7427,37 @@ export interface MessageMentionOptions {
 
 export type MessageMentionTypes = 'roles' | 'users' | 'everyone';
 
-export interface MessageSnapshot extends Partialize<
-  Message,
-  null,
-  Exclude<
-    keyof Message,
-    | 'attachments'
-    | 'client'
-    | 'components'
-    | 'content'
-    | 'createdTimestamp'
-    | 'editedTimestamp'
-    | 'embeds'
-    | 'flags'
-    | 'mentions'
-    | 'stickers'
-    | 'type'
-  >
-> {}
+export interface MessageSnapshot
+  extends Partialize<
+    Message,
+    null,
+    Exclude<
+      keyof Message,
+      | 'attachments'
+      | 'client'
+      | 'components'
+      | 'content'
+      | 'createdTimestamp'
+      | 'editedTimestamp'
+      | 'embeds'
+      | 'flags'
+      | 'mentions'
+      | 'stickers'
+      | 'type'
+    >
+  > {}
 
 export interface BaseMessageOptions {
   content?: string;
   embeds?: readonly (JSONEncodable<APIEmbed> | APIEmbed)[];
   allowedMentions?: MessageMentionOptions;
   files?: readonly (
-    BufferResolvable | Stream | JSONEncodable<APIAttachment> | Attachment | AttachmentBuilder | AttachmentPayload
+    | BufferResolvable
+    | Stream
+    | JSONEncodable<APIAttachment>
+    | Attachment
+    | AttachmentBuilder
+    | AttachmentPayload
   )[];
   components?: readonly (
     | JSONEncodable<APIMessageTopLevelComponent>
@@ -7484,7 +7491,8 @@ export interface MessageCreateOptions extends BaseMessageOptionsWithPoll {
 }
 
 export interface GuildForumThreadMessageCreateOptions
-  extends BaseMessageOptions, Pick<MessageCreateOptions, 'flags' | 'stickers'> {}
+  extends BaseMessageOptions,
+    Pick<MessageCreateOptions, 'flags' | 'stickers'> {}
 
 export interface MessageEditAttachmentData {
   id: Snowflake;
@@ -7727,23 +7735,20 @@ export interface PartialDMChannel extends Partialize<DMChannel, null, null, 'las
 
 export interface PartialGuildMember extends Partialize<GuildMember, 'joinedAt' | 'joinedTimestamp' | 'pending'> {}
 
-export interface PartialMessage<InGuild extends boolean = boolean> extends Partialize<
-  Message<InGuild>,
-  'type' | 'system' | 'pinned' | 'tts',
-  'content' | 'cleanContent' | 'author'
-> {}
+export interface PartialMessage<InGuild extends boolean = boolean>
+  extends Partialize<Message<InGuild>, 'type' | 'system' | 'pinned' | 'tts', 'content' | 'cleanContent' | 'author'> {}
 
 export interface PartialMessageReaction extends Partialize<MessageReaction, 'count'> {}
 
-export interface PartialPoll extends Partialize<
-  Poll,
-  'allowMultiselect' | 'layoutType' | 'expiresTimestamp',
-  null,
-  'question' | 'message' | 'answers'
-> {
+export interface PartialPoll
+  extends Partialize<
+    Poll,
+    'allowMultiselect' | 'layoutType' | 'expiresTimestamp',
+    null,
+    'question' | 'message' | 'answers'
+  > {
   question: { text: null };
   message: PartialMessage;
-  // eslint-disable-next-line no-restricted-syntax
   answers: Collection<number, PartialPollAnswer>;
 }
 
@@ -7751,11 +7756,8 @@ export interface PartialPollAnswer extends Partialize<PollAnswer, 'emoji' | 'tex
   readonly poll: PartialPoll;
 }
 
-export interface PartialGuildScheduledEvent extends Partialize<
-  GuildScheduledEvent,
-  'userCount',
-  'status' | 'privacyLevel' | 'name' | 'entityType'
-> {}
+export interface PartialGuildScheduledEvent
+  extends Partialize<GuildScheduledEvent, 'userCount', 'status' | 'privacyLevel' | 'name' | 'entityType'> {}
 
 export interface PartialThreadMember extends Partialize<ThreadMember, 'flags' | 'joinedAt' | 'joinedTimestamp'> {}
 
@@ -8094,7 +8096,8 @@ export interface WebhookMessageEditOptions extends MessageEditOptions {
 }
 
 export interface InteractionEditReplyOptions
-  extends WebhookMessageEditOptions, Pick<BaseMessageOptionsWithPoll, 'poll'> {
+  extends WebhookMessageEditOptions,
+    Pick<BaseMessageOptionsWithPoll, 'poll'> {
   message?: MessageResolvable | '@original';
 }
 
@@ -8102,10 +8105,8 @@ export interface WebhookFetchMessageOptions {
   threadId?: Snowflake;
 }
 
-export interface WebhookMessageCreateOptions extends Omit<
-  MessageCreateOptions,
-  'nonce' | 'reply' | 'stickers' | 'forward' | 'sharedClientTheme'
-> {
+export interface WebhookMessageCreateOptions
+  extends Omit<MessageCreateOptions, 'nonce' | 'reply' | 'stickers' | 'forward' | 'sharedClientTheme'> {
   username?: string;
   avatarURL?: string;
   threadId?: Snowflake;
@@ -8205,13 +8206,13 @@ export type InternalDiscordGatewayAdapterCreator = (
 
 //#endregion
 
-// External
-export * from 'discord-api-types/v10';
 export * from '@discordjs/builders';
 export * from '@discordjs/formatters';
 export * from '@discordjs/rest';
 export * from '@discordjs/util';
 export * from '@discordjs/ws';
+// External
+export * from 'discord-api-types/v10';
 
 // Solve TS compile error
 export type { ImageSize };

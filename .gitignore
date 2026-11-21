@@ -30,7 +30,6 @@ coverage
 *.tgz
 *.tsbuildinfo
 .npm
-.eslintcache
 
 # Generated type definitions (see scripts/esmDts.mjs)
 typings/index.d.mts

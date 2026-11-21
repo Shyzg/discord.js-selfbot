@@ -244,14 +244,12 @@ class GuildMemberManager extends CachedManager {
       let i = 0;
 
       const cleanup = () => {
-        /* eslint-disable no-use-before-define */
         clearTimeout(timeout);
 
         this.client.removeListener(Events.Raw, rateLimitHandler);
         this.client.decrementMaxListeners();
         this.client.removeListener(Events.GuildMembersChunk, handler);
         this.client.decrementMaxListeners();
-        /* eslint-enable no-use-before-define */
       };
 
       const timeout = setTimeout(() => {
@@ -390,7 +388,6 @@ class GuildMemberManager extends CachedManager {
 
     if (options.communicationDisabledUntil !== undefined) {
       options.communication_disabled_until =
-        // eslint-disable-next-line eqeqeq
         options.communicationDisabledUntil != null
           ? new Date(options.communicationDisabledUntil).toISOString()
           : options.communicationDisabledUntil;
@@ -414,7 +411,6 @@ class GuildMemberManager extends CachedManager {
 
         if (!deprecatedEmittedForEditSoleNickname) {
           process.emitWarning(
-            // eslint-disable-next-line max-len
             "You should use GuildMemberManager#editMe() when changing your nickname. Due to Discord's API changes, GuildMemberManager#edit() will end up requiring MANAGE_NICKNAMES in v15.",
             'DeprecationWarning',
           );

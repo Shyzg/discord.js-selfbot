@@ -54,7 +54,6 @@ class ApplicationCommandPermissionsManager extends BaseManager {
     return Routes.guildApplicationCommandsPermissions(this.client.application.id, guildId);
   }
 
-  /* eslint-disable max-len */
   /**
    * The object returned when fetching permissions for an application command.
    * @typedef {Object} ApplicationCommandPermissions
@@ -63,7 +62,6 @@ class ApplicationCommandPermissionsManager extends BaseManager {
    * @property {ApplicationCommandPermissionType} type Whether this permission is for a role or a user
    * @property {boolean} permission Whether the role or user has the permission to use this command
    */
-  /* eslint-enable max-len */
 
   /**
    * Options for managing permissions for one or more Application Commands
@@ -421,7 +419,6 @@ class ApplicationCommandPermissionsManager extends BaseManager {
 
 module.exports = ApplicationCommandPermissionsManager;
 
-/* eslint-disable max-len */
 /**
  * Data that resolves to an id used for an application command permission
  * @typedef {UserResolvable|RoleResolvable|GuildChannelResolvable|RolePermissionConstant|ChannelPermissionConstant} ApplicationCommandPermissionIdResolvable

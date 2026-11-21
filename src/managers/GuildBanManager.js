@@ -158,7 +158,6 @@ class GuildBanManager extends CachedManager {
 
     if (options.deleteMessageDays !== undefined && !deprecationEmittedForDeleteMessageDays) {
       process.emitWarning(
-        // eslint-disable-next-line max-len
         'The deleteMessageDays option for GuildBanManager#create() is deprecated. Use the deleteMessageSeconds option instead.',
         'DeprecationWarning',
       );

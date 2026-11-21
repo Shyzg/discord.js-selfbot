@@ -56,7 +56,6 @@ client.on(Events.MessageCreate, async message => {
     res = await eval(message.content.slice(prefix.length));
     if (typeof res !== 'string') res = require('node:util').inspect(res);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error(err.stack);
     res = err.message;
   }

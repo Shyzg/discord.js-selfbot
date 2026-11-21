@@ -186,7 +186,6 @@ class ModalSubmitInteraction extends BaseInteraction {
     if (rawComponent.values) {
       data.values = rawComponent.values;
 
-      /* eslint-disable max-depth */
       if (resolved) {
         const { members, users, channels, roles, attachments } = resolved;
         const valueSet = new Set(rawComponent.values);
@@ -241,8 +240,6 @@ class ModalSubmitInteraction extends BaseInteraction {
           }
         }
       }
-
-      /* eslint-enable max-depth */
     }
 
     return data;
@@ -257,7 +254,6 @@ class ModalSubmitInteraction extends BaseInteraction {
   }
 
   // These are here only for documentation purposes - they are implemented by InteractionResponses
-  /* eslint-disable no-empty-function */
   deferReply() {}
   reply() {}
   fetchReply() {}

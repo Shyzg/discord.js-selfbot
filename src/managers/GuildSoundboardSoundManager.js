@@ -169,7 +169,6 @@ class GuildSoundboardSoundManager extends CachedManager {
    * @property {boolean} [cache] Whether to cache the fetched soundboard sounds
    */
 
-  /* eslint-disable max-len */
   /**
    * Obtains one or more soundboard sounds from Discord, or the soundboard sound cache if they're already available.
    * @param {SoundboardSoundResolvable|FetchSoundboardSoundOptions|FetchGuildSoundboardSoundsOptions} [options] Options for fetching soundboard sound(s)
@@ -185,7 +184,6 @@ class GuildSoundboardSoundManager extends CachedManager {
    *   .then(sounds => console.log(`There are ${sounds.size} soundboard sounds.`))
    *   .catch(console.error);
    */
-  /* eslint-enable max-len */
   async fetch(options) {
     if (!options) return this._fetchMany();
     const { cache, force, soundboardSound } = options;

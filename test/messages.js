@@ -126,13 +126,11 @@ client.on('messageCreate', async message => {
   if (message.author.id !== process.env.OWNER) return;
   const match = message.content.match(/^do (.+)$/);
   if (match?.[1] === 'it') {
-    /* eslint-disable no-await-in-loop */
     for (const [i, test] of tests.entries()) {
       await message.channel.send(`**#${i}**\n\`\`\`js\n${test.toString()}\`\`\``);
       await test(message).catch(e => message.channel.send(`Error!\n\`\`\`\n${e}\`\`\``));
       await sleep(1_000);
     }
-    /* eslint-enable no-await-in-loop */
   } else if (match) {
     const n = parseInt(match[1]) || 0;
     const test = tests.slice(n)[0];
@@ -144,5 +142,4 @@ client.on('messageCreate', async message => {
 
 client.login();
 
-// eslint-disable-next-line no-console
 process.on('unhandledRejection', console.error);

@@ -648,7 +648,6 @@ class ApplicationCommand extends Base {
 
 module.exports = ApplicationCommand;
 
-/* eslint-disable max-len */
 /**
  * @external ApplicationCommandOptionAllowedChannelTypes
  * @see {@link https://discord.js.org/docs/packages/builders/stable/ApplicationCommandOptionAllowedChannelTypes:TypeAlias}

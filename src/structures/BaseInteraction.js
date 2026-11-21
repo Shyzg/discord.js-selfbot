@@ -109,7 +109,6 @@ class BaseInteraction extends Base {
       new Collection(),
     );
 
-    /* eslint-disable max-len */
     /**
      * Mapping of integration types that the application was authorized for the related user or guild ids
      *
@@ -120,7 +119,6 @@ class BaseInteraction extends Base {
       this.client,
       data.authorizing_integration_owners,
     );
-    /* eslint-enable max-len */
 
     /**
      * Context where the interaction was triggered from

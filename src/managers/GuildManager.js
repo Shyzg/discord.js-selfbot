@@ -157,7 +157,6 @@ class GuildManager extends CachedManager {
    * @property {Snowflake|number} [systemChannelId] The system channel's id
    * @property {SystemChannelFlagsResolvable} [systemChannelFlags] The flags of the system channel
    */
-  /* eslint-enable max-len */
 
   /**
    * Creates a guild.

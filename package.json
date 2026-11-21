@@ -6,8 +6,8 @@
   "scripts": {
     "test": "node --test --test-force-exit test/*.test.js && pnpm run test:typescript",
     "test:typescript": "tsc --noEmit && tsd",
-    "lint": "prettier --check . && eslint src typings",
-    "format": "prettier --write . && eslint --fix src",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "fmt": "pnpm run format",
     "prepack": "pnpm run lint && pnpm run test && node ./scripts/esmDts.mjs"
   },
@@ -70,11 +70,6 @@
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
     "@types/node": "^24.19.2",
-    "@typescript-eslint/eslint-plugin": "^8.73.0",
-    "@typescript-eslint/parser": "^8.73.0",
-    "eslint": "^10.15.0",
-    "eslint-plugin-import": "^2.32.0",
-    "prettier": "^3.10.1",
     "tsd": "^0.33.0",
     "typescript": "^6.0.3"
   },

@@ -5,7 +5,6 @@ const { GatewayIntentBits } = require('discord-api-types/v10');
 const { token, prefix, owner } = require('./auth.js');
 const { Client, Events, Formatters, Options, RESTEvents } = require('../src');
 
-// eslint-disable-next-line no-console
 const log = (...args) => console.log(process.uptime().toFixed(3), ...args);
 
 const client = new Client({
@@ -40,7 +39,6 @@ const commands = {
       res = eval(message.content);
       if (typeof res !== 'string') res = require('node:util').inspect(res);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error(err.stack);
       res = err.message;
     }
@@ -56,7 +54,6 @@ client.on(Events.MessageCreate, message => {
   const command = message.content.shift();
   message.content = message.content.join(' ');
 
-  // eslint-disable-next-line no-console
   console.log('COMMAND', command, message.content);
 
   if (command in commands) commands[command](message);
@@ -64,5 +61,4 @@ client.on(Events.MessageCreate, message => {
 
 client.login(token);
 
-// eslint-disable-next-line no-console
 process.on('unhandledRejection', console.error);

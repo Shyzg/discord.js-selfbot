@@ -31,7 +31,7 @@ The public API matches discord.js 14.x — see the
 ```sh
 pnpm install
 pnpm test     # node --test + tsc + tsd
-pnpm lint     # prettier + eslint
+pnpm lint     # biome
 ```
 
 ## License

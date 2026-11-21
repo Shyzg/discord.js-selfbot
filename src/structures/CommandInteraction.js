@@ -151,7 +151,6 @@ class CommandInteraction extends BaseInteraction {
   }
 
   // These are here only for documentation purposes - they are implemented by InteractionResponses
-  /* eslint-disable no-empty-function */
   deferReply() {}
   reply() {}
   fetchReply() {}

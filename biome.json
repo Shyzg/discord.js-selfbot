@@ -1,0 +1,97 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**"]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "linter": {
+    "rules": {
+      "preset": "none"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/**/*.js"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noArguments": "error",
+            "noCommaOperator": "error",
+            "noExcessiveNestedCallbacks": {
+              "level": "error",
+              "options": {
+                "max": 4
+              }
+            },
+            "noUselessConstructor": "error",
+            "noUselessEscapeInRegex": "error",
+            "noUselessLoneBlockStatements": "error",
+            "noUselessStringConcat": "error",
+            "noUselessTernary": "error",
+            "noUselessUndefinedInitialization": "error",
+            "noVoid": "error",
+            "useLiteralKeys": "error",
+            "useNumericLiterals": "error"
+          },
+          "correctness": {
+            "noUnusedInstantiation": "error"
+          },
+          "performance": {
+            "noAwaitInLoops": "warn"
+          },
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "Buffer": "Import Buffer from `node:buffer` instead",
+                  "process": "Import process from `node:process` instead",
+                  "setTimeout": "Import setTimeout from `node:timers` instead",
+                  "setInterval": "Import setInterval from `node:timers` instead",
+                  "setImmediate": "Import setImmediate from `node:timers` instead",
+                  "clearTimeout": "Import clearTimeout from `node:timers` instead",
+                  "clearInterval": "Import clearInterval from `node:timers` instead"
+                }
+              }
+            },
+            "noYodaExpression": "error",
+            "useArrayLiterals": "error",
+            "useCollapsedElseIf": "error",
+            "useConsistentArrowReturn": "error",
+            "useShorthandAssign": "error",
+            "useSpreadOverApply": "error",
+            "useTemplate": "error"
+          },
+          "suspicious": {
+            "noCompareNegZero": "error",
+            "noDoubleEquals": "error",
+            "noLabelVar": "error",
+            "noOctalEscape": "error",
+            "noPrototypeBuiltins": "error",
+            "noReturnAssign": "error",
+            "noSelfCompare": "error",
+            "noShadow": "error",
+            "noTemplateCurlyInString": "error",
+            "noUnsafeNegation": "error",
+            "noUnusedExpressions": "error",
+            "useIterableCallbackReturn": "error"
+          }
+        }
+      }
+    }
+  ]
+}

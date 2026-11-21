@@ -279,7 +279,7 @@ class Collector extends EventEmitter {
         if (queue.length) {
           yield queue.shift();
         } else {
-          // eslint-disable-next-line no-await-in-loop
+          // biome-ignore lint/performance/noAwaitInLoops: the iterator must wait for the next collect or end event
           await new Promise(resolve => {
             const tick = () => {
               this.removeListener('collect', tick);
@@ -300,7 +300,6 @@ class Collector extends EventEmitter {
     return flatten(this);
   }
 
-  /* eslint-disable no-empty-function */
   /**
    * The reason this collector has ended with, or null if it hasn't ended yet
    * @type {?string}
@@ -329,7 +328,6 @@ class Collector extends EventEmitter {
    * @abstract
    */
   dispose() {}
-  /* eslint-enable no-empty-function */
 }
 
 module.exports = Collector;

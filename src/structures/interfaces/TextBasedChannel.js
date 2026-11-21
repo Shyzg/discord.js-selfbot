@@ -443,5 +443,4 @@ class TextBasedChannel {
 module.exports = TextBasedChannel;
 
 // Fixes Circular
-// eslint-disable-next-line import/order
 const GuildMessageManager = require('../../managers/GuildMessageManager');

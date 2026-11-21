@@ -1,7 +1,5 @@
 'use strict';
 
-/* eslint-env jest */
-
 const { resolveGuildTemplateCode } = require('../src');
 
 describe('resolveGuildTemplateCode', () => {

@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 'use strict';
 
 const { token, owner } = require('./auth.js');

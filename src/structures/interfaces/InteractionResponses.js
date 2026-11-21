@@ -105,7 +105,6 @@ class InteractionResponses {
     if ('fetchReply' in options) {
       if (!deprecationEmittedForFetchReplyOption) {
         process.emitWarning(
-          // eslint-disable-next-line max-len
           `Supplying "fetchReply" for interaction response options is deprecated. Utilize "withResponse" instead or fetch the response after using the method.`,
         );
 
@@ -175,7 +174,6 @@ class InteractionResponses {
       if ('fetchReply' in options) {
         if (!deprecationEmittedForFetchReplyOption) {
           process.emitWarning(
-            // eslint-disable-next-line max-len
             `Supplying "fetchReply" for interaction response options is deprecated. Utilize "withResponse" instead or fetch the response after using the method.`,
           );
 
@@ -294,7 +292,6 @@ class InteractionResponses {
     if ('fetchReply' in options) {
       if (!deprecationEmittedForFetchReplyOption) {
         process.emitWarning(
-          // eslint-disable-next-line max-len
           `Supplying "fetchReply" for interaction response options is deprecated. Utilize "withResponse" instead or fetch the response after using the method.`,
         );
 
@@ -337,7 +334,6 @@ class InteractionResponses {
     if (typeof options !== 'string' && 'fetchReply' in options) {
       if (!deprecationEmittedForFetchReplyOption) {
         process.emitWarning(
-          // eslint-disable-next-line max-len
           `Supplying "fetchReply" for interaction response options is deprecated. Utilize "withResponse" instead or fetch the response after using the method.`,
         );
 
@@ -487,7 +483,6 @@ class InteractionResponses {
 
 InteractionResponses.prototype.sendPremiumRequired = deprecate(
   InteractionResponses.prototype.sendPremiumRequired,
-  // eslint-disable-next-line max-len
   'InteractionResponses#sendPremiumRequired() is deprecated. Sending a premium-style button is the new Discord behaviour.',
 );
 

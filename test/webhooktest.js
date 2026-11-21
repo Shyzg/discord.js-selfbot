@@ -88,7 +88,6 @@ client.on('messageCreate', async message => {
     { type: 'Guild#fetchWebhooks', hook: await message.guild.fetchWebhooks().then(x => x.first()) },
   ];
   if (match?.[1] === 'it') {
-    /* eslint-disable no-await-in-loop */
     for (const { type, hook } of hooks) {
       for (const [i, test] of tests.entries()) {
         await message.channel.send(`**#${i}-Hook: ${type}**\n\`\`\`js\n${test.toString()}\`\`\``);
@@ -96,17 +95,14 @@ client.on('messageCreate', async message => {
         await sleep(1_000);
       }
     }
-    /* eslint-enable no-await-in-loop */
   } else if (match) {
     const n = parseInt(match[1]) || 0;
     const test = tests.slice(n)[0];
     const i = tests.indexOf(test);
-    /* eslint-disable no-await-in-loop */
     for (const { type, hook } of hooks) {
       await message.channel.send(`**#${i}-Hook: ${type}**\n\`\`\`js\n${test.toString()}\`\`\``);
       await test(message, hook).catch(e => message.channel.send(`Error!\n\`\`\`\n${e}\`\`\``));
     }
-    /* eslint-enable no-await-in-loop */
   }
 });
 

@@ -102,7 +102,6 @@ class ThreadMemberManager extends CachedManager {
   async add(member, reason) {
     if (reason !== undefined && !deprecationEmittedForAdd) {
       process.emitWarning(
-        // eslint-disable-next-line max-len
         'The reason parameter of ThreadMemberManager#add() is deprecated as Discord does not parse them. It will be removed in the next major version.',
         'DeprecationWarning',
       );
