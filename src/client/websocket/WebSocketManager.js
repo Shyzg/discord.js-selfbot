@@ -12,6 +12,7 @@ const {
 } = require('@discordjs/ws');
 const { GatewayCloseCodes, GatewayDispatchEvents } = require('discord-api-types/v10');
 const WebSocketShard = require('./WebSocketShard');
+const { patchUserIdentify } = require('./userIdentify');
 const PacketHandlers = require('./handlers');
 const { DiscordjsError, ErrorCodes } = require('../../errors');
 const Events = require('../../util/Events');
@@ -161,8 +162,12 @@ class WebSocketManager extends EventEmitter {
         },
         compression: zlib ? CompressionMethod.ZlibSync : null,
       };
-      // Spoof the web-client `properties` in the IDENTIFY for user accounts; bot mode keeps @discordjs/ws defaults.
-      if (tokenType === 'user') wsOptions.identifyProperties = require('../../util/UserProperties').superProperties;
+      // Spoof the web-client IDENTIFY for user accounts (properties + capabilities/client_state); bot mode
+      // keeps @discordjs/ws defaults.
+      if (tokenType === 'user') {
+        wsOptions.identifyProperties = require('../../util/UserProperties').superProperties;
+        patchUserIdentify();
+      }
       if (ws.buildIdentifyThrottler) wsOptions.buildIdentifyThrottler = ws.buildIdentifyThrottler;
       if (ws.buildStrategy) wsOptions.buildStrategy = ws.buildStrategy;
       this._ws = new WSWebSocketManager(wsOptions);
