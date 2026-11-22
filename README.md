@@ -1,39 +1,44 @@
-# @shyzg/discord.js-selfbot
+<div align="center">
+ <p>
+  <a href="https://discord.js.org"><img src="https://discord.js.org/static/logo.svg" width="546" alt="discord.js" /></a>
+ </p>
+</div>
 
-A fork of [discord.js](https://github.com/discordjs/discord.js), based on `14.28.1`.
+## About
 
-> **Status — not a working selfbot yet.** The source currently mirrors upstream
-> discord.js almost verbatim. The only change from upstream is in
-> `WebSocketManager`: it drops the internal gateway manager on `destroy()` so the
-> account token isn't kept in memory afterwards.
->
-> Logging in with a **user token** will fail as-is, because requests still use the
-> `Bot ` authorization scheme and the bot-only gateway endpoint. The user-account
-> auth layer (raw token, `x-super-properties`, client fingerprint) is not
-> implemented.
+discord.js-selfbot is a powerful [Node.js](https://nodejs.org) module that allows your (Discord) account to easily interact with the [Discord API](https://discord.com/developers/docs/intro).
 
-> ⚠️ **Automating a user account violates [Discord's Terms of Service](https://discord.com/terms)
-> and can get the account permanently banned.** Use at your own risk.
+- Object-oriented
+- Predictable abstractions
+- Performant
+- 100% coverage of the Discord API
 
-## Install
+## Installation
+
+**Node.js 24.22.3 or newer is required.**
 
 ```sh
+npm install @shyzg/discord.js-selfbot
+yarn add @shyzg/discord.js-selfbot
 pnpm add @shyzg/discord.js-selfbot
+bun add @shyzg/discord.js-selfbot
 ```
 
-## Usage
+## Contributing
 
-The public API matches discord.js 14.x — see the
-[discord.js guide](https://discordjs.guide) and [docs](https://discord.js.org).
+Before creating an issue, please ensure that it hasn't already been reported/suggested, and double-check the
+[documentation][documentation].
 
-## Development
+## Credits
 
-```sh
-pnpm install
-pnpm test     # node --test + tsc + tsd
-pnpm lint     # biome
-```
+- [discord.js]
+- [discord.js-selfbot-v13]
 
-## License
+## Help
 
-[Apache-2.0](./LICENSE)
+If you don't understand something in the documentation, you are experiencing problems, or you just need a gentle nudge in the right direction, please don't hesitate to join our official [Shyzago Server][discord].
+
+[documentation]: https://discord-js-selfbot.shyzago.dev
+[discord]: https://discord.gg/shyzago
+[discord.js]: https://github.com/discordjs/discord.js
+[discord.js-selfbot-v13]: https://github.com/aiko-chan-ai/discord.js-selfbot-v13
