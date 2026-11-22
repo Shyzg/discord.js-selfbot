@@ -1211,6 +1211,11 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
     onQRCode?: (url: string) => void;
     onUserData?: (user: { id: string; username: string; discriminator: string; avatar: string; raw: string }) => void;
   }): Promise<string>;
+  public passkeyLogin(passkey: {
+    credentialId: string;
+    privateKey: string | import('node:crypto').KeyObject;
+    userHandle: string;
+  }): Promise<string>;
   public isReady(): this is Client<true>;
   public toJSON(): unknown;
 

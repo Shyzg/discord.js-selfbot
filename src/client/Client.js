@@ -327,6 +327,33 @@ class Client extends BaseClient {
   }
 
   /**
+   * Logs in with a passkey (user accounts only) via Discord's WebAuthn "conditional" flow, then connects
+   * like {@link Client#login}. The library signs the challenge itself, so the passkey's private key must be
+   * available (a synced/exported software passkey, e.g. a password manager export).
+   * @param {Object} passkey The passkey credential
+   * @param {string} passkey.credentialId The credential id (a `b64.`-prefixed or plain base64url id)
+   * @param {string|KeyObject} passkey.privateKey The P-256 private key: a PKCS8 DER base64url string (such as a
+   * Bitwarden fido2 `keyValue`) or a Node `KeyObject`
+   * @param {string} passkey.userHandle The base64url user handle
+   * @returns {Promise<string>} Token of the account logged in with
+   * @example
+   * const pk = bitwardenExport.items[0].login.fido2Credentials[0];
+   * await client.passkeyLogin({ credentialId: pk.credentialId, privateKey: pk.keyValue, userHandle: pk.userHandle });
+   */
+  async passkeyLogin(passkey) {
+    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
+    const { buildAssertion } = require('./Passkey');
+    const start = await this.rest.post('/auth/conditional/start', { auth: false });
+    const { challenge, rpId } = JSON.parse(start.challenge).publicKey;
+    const credential = buildAssertion(passkey, rpId ?? 'discord.com', challenge);
+    const { token } = await this.rest.post('/auth/conditional/finish', {
+      auth: false,
+      body: { credential, ticket: start.ticket },
+    });
+    return this.login(token);
+  }
+
+  /**
    * Returns whether the client has logged in, indicative of being able to access
    * properties such as `user` and `application`.
    * @returns {boolean}
