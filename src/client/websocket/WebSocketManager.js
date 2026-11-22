@@ -139,7 +139,7 @@ class WebSocketManager extends EventEmitter {
    */
   async connect() {
     const invalidToken = new DiscordjsError(ErrorCodes.TokenInvalid);
-    const { shards, shardCount, intents, ws, tokenType } = this.client.options;
+    const { shards, shardCount, ws } = this.client.options;
     // A previous destroy() must not leave this new session marked as destroyed
     this.destroyed = false;
     if (this._ws && this._ws.token !== this.client.token) {
@@ -149,7 +149,7 @@ class WebSocketManager extends EventEmitter {
     if (!this._ws) {
       const wsOptions = {
         // User accounts send no intents (undefined is dropped from the IDENTIFY by JSON.stringify).
-        intents: tokenType === 'user' ? undefined : intents.bitfield,
+        intents: undefined,
         rest: this.client.rest,
         largeThreshold: ws.large_threshold,
         version: ws.version,
@@ -162,12 +162,9 @@ class WebSocketManager extends EventEmitter {
         },
         compression: zlib ? CompressionMethod.ZlibSync : null,
       };
-      // Spoof the web-client IDENTIFY for user accounts (properties + capabilities/client_state); bot mode
-      // keeps @discordjs/ws defaults.
-      if (tokenType === 'user') {
-        wsOptions.identifyProperties = require('../../util/UserProperties').superProperties;
-        patchUserIdentify();
-      }
+      // Spoof the web-client IDENTIFY (properties here, capabilities/client_state via the shard-send patch).
+      wsOptions.identifyProperties = require('../../util/UserProperties').superProperties;
+      patchUserIdentify();
       if (ws.buildIdentifyThrottler) wsOptions.buildIdentifyThrottler = ws.buildIdentifyThrottler;
       if (ws.buildStrategy) wsOptions.buildStrategy = ws.buildStrategy;
       this._ws = new WSWebSocketManager(wsOptions);

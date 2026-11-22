@@ -8,7 +8,7 @@
 
 discord.js-selfbot is a powerful [Node.js](https://nodejs.org) module that allows your (Discord) account to easily interact with the [Discord API](https://discord.com/developers/docs/intro).
 
-> **Status:** only bot tokens work for now. Logging in with a user token fails, because requests still use the `Bot` authorization scheme and the bot-only gateway endpoint. The user-account auth layer is not implemented yet.
+> **Status:** this is a user-account (selfbot) library — it works with **user tokens only**, not bot tokens. Log in with `client.login(userToken)`, or obtain a token via `normalLogin` (email/password + MFA/captcha), `QRLogin` (QR code), or `passkeyLogin` (WebAuthn passkey).
 >
 > ⚠️ **Automating a user account violates [Discord's Terms of Service](https://discord.com/terms) and can get the account permanently banned.** Use at your own risk.
 

@@ -45,7 +45,7 @@ test('buildAssertion signs an assertion that verifies against the public key', (
 
 test('passkeyLogin runs conditional start -> finish and returns the token', async () => {
   const { keyValue } = p256KeyValue();
-  const client = new Client({ tokenType: 'user' });
+  const client = new Client();
   client.login = async token => token;
   const posts = [];
   client.rest = {
@@ -67,12 +67,4 @@ test('passkeyLogin runs conditional start -> finish and returns the token', asyn
   const credential = JSON.parse(finish.body.credential);
   assert.equal(credential.id, 'CRED');
   assert.equal(JSON.parse(Buffer.from(credential.response.clientDataJSON, 'base64url').toString()).challenge, 'CH');
-});
-
-test('passkeyLogin requires a user-account client', async () => {
-  const client = new Client({ intents: [] });
-  await assert.rejects(
-    () => client.passkeyLogin({ credentialId: 'x', privateKey: 'y', userHandle: 'z' }),
-    /user-account/i,
-  );
 });
