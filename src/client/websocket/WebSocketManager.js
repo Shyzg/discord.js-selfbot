@@ -139,6 +139,8 @@ class WebSocketManager extends EventEmitter {
   async connect() {
     const invalidToken = new DiscordjsError(ErrorCodes.TokenInvalid);
     const { shards, shardCount, intents, ws } = this.client.options;
+    // A previous destroy() must not leave this new session marked as destroyed
+    this.destroyed = false;
     if (this._ws && this._ws.token !== this.client.token) {
       await this._ws.destroy({ code: CloseCodes.Normal, reason: 'Login with differing token requested' });
       this._ws = null;
@@ -147,7 +149,6 @@ class WebSocketManager extends EventEmitter {
       const wsOptions = {
         intents: intents.bitfield,
         rest: this.client.rest,
-        token: this.client.token,
         largeThreshold: ws.large_threshold,
         version: ws.version,
         shardIds: shards === 'auto' ? null : shards,
@@ -162,6 +163,8 @@ class WebSocketManager extends EventEmitter {
       if (ws.buildIdentifyThrottler) wsOptions.buildIdentifyThrottler = ws.buildIdentifyThrottler;
       if (ws.buildStrategy) wsOptions.buildStrategy = ws.buildStrategy;
       this._ws = new WSWebSocketManager(wsOptions);
+      // setToken keeps the token in a private field instead of the inspectable options object
+      this._ws.setToken(this.client.token);
       this.attachEvents();
     }
 
@@ -246,6 +249,10 @@ class WebSocketManager extends EventEmitter {
     this._ws.on(WSWebSocketShardEvents.Closed, (code, shardId) => {
       const shard = this.shards.get(shardId);
       shard.emit(WebSocketShardEvents.Close, { code, reason: reasonIsDeprecated, wasClean: true });
+      if (this.destroyed) {
+        shard.status = Status.Disconnected;
+        return;
+      }
       if (UNRECOVERABLE_CLOSE_CODES.includes(code)) {
         shard.status = Status.Disconnected;
         /**
@@ -327,6 +334,8 @@ class WebSocketManager extends EventEmitter {
     this.debug([Object.assign(new Error(), { name: 'Manager was destroyed:' }).stack]);
     this.destroyed = true;
     await this._ws?.destroy({ code: CloseCodes.Normal, reason: 'Manager was destroyed' });
+    // Release the gateway manager, and the token it holds
+    this._ws = null;
   }
 
   /**

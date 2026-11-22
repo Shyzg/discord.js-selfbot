@@ -3,6 +3,8 @@
 const Events = require('../../../util/Events');
 
 module.exports = (client, packet, shard) => {
+  // client.destroy() can clear the session while this RESUMED dispatch is still in flight
+  if (!shard.sessionInfo) return;
   const replayed = shard.sessionInfo.sequence - shard.closeSequence;
   /**
    * Emitted when a shard resumes successfully.
