@@ -8,7 +8,7 @@ const { Client } = require('../src');
 // A user-mode client whose network calls are stubbed: rest.post is replaced per-test, and login() is
 // short-circuited to return its token so no real gateway connection happens.
 function stubClient(post) {
-  const client = new Client({ tokenType: 'user' });
+  const client = new Client();
   client.login = async token => token;
   client.rest = { post };
   return client;
@@ -103,9 +103,4 @@ test('an unsupported MFA method (e.g. webauthn) is rejected', async () => {
     () => client.normalLogin('user@example.com', 'pw', { mfa: async () => ({ method: 'webauthn', code: 'x' }) }),
     /mfa method/i,
   );
-});
-
-test('normalLogin requires a user-account client', async () => {
-  const client = new Client({ intents: [] });
-  await assert.rejects(() => client.normalLogin('user@example.com', 'pw'), /user-account/i);
 });

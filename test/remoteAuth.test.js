@@ -18,7 +18,7 @@ function serverEncrypt(encodedPublicKey, data) {
 }
 
 function userClient() {
-  return new Client({ tokenType: 'user' });
+  return new Client();
 }
 
 test('handshake: init, nonce proof, QR url, and token decryption', async () => {
@@ -91,9 +91,4 @@ test('a cancel op fails the handshake', async () => {
       ),
     /cancel/i,
   );
-});
-
-test('QRLogin requires a user-account client', async () => {
-  const client = new Client({ intents: [] });
-  await assert.rejects(() => client.QRLogin(), /user-account/i);
 });

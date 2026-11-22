@@ -27,15 +27,14 @@ test('fixUserRequestHeaders leaves unauthenticated requests untouched', () => {
   assert.equal('Authorization' in headers, false);
 });
 
-test('user-mode Client needs no intents and injects the fingerprint into REST', () => {
-  const user = new Client({ tokenType: 'user' });
-  const bot = new Client({ intents: [] });
-  assert.equal(Number(user.options.intents.bitfield), 0); // empty but valid, so intents.has() still works
-  assert.equal(user.options.rest.headers['x-super-properties'], userHeaders['x-super-properties']);
-  // user mode wraps makeRequest (to fix auth/UA); bot mode keeps the untouched default
-  assert.notEqual(user.options.rest.makeRequest, bot.options.rest.makeRequest);
+test('a Client injects the web-client fingerprint into REST and needs no intents', () => {
+  const client = new Client();
+  assert.equal(Number(client.options.intents.bitfield), 0); // empty but valid, so intents.has() still works
+  assert.equal(client.options.rest.headers['x-super-properties'], userHeaders['x-super-properties']);
+  // makeRequest is wrapped to fix the auth scheme + User-Agent, so it differs from the @discordjs/rest default
+  assert.notEqual(client.options.rest.makeRequest, require('@discordjs/rest').DefaultRestOptions.makeRequest);
 });
 
-test('bot-mode Client still requires intents', () => {
-  assert.throws(() => new Client({}), /intents/i);
+test('a Client constructs with no options (intents are no longer required)', () => {
+  assert.doesNotThrow(() => new Client());
 });

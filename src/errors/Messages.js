@@ -7,8 +7,6 @@ const Messages = {
   [DjsErrorCodes.ClientInvalidProvidedShards]: 'None of the provided shards were valid.',
   [DjsErrorCodes.ClientMissingIntents]: 'Valid intents must be provided for the Client.',
   [DjsErrorCodes.ClientNotReady]: action => `The client needs to be logged in to ${action}.`,
-  [DjsErrorCodes.ClientNotUserAccount]:
-    'This method is only available on user-account clients (set the tokenType option to "user").',
   [DjsErrorCodes.CaptchaRequired]: service =>
     `A captcha (${service}) is required to log in; provide a \`captcha\` handler to normalLogin.`,
   [DjsErrorCodes.MFARequired]: methods =>

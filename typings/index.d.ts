@@ -6292,7 +6292,6 @@ export interface ClientOptions {
   failIfNotExists?: boolean;
   presence?: PresenceData;
   intents?: BitFieldResolvable<GatewayIntentsString, number>;
-  tokenType?: 'bot' | 'user';
   waitGuildTimeout?: number;
   sweepers?: SweeperOptions;
   ws?: WebSocketOptions;

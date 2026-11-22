@@ -251,7 +251,6 @@ class Client extends BaseClient {
    * });
    */
   async normalLogin(login, password, { captcha, mfa } = {}) {
-    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
     const body = { login, password, undelete: false, login_source: null, gift_code_sku_id: null };
     const data = await this._passwordLogin(body, captcha);
     return this.login(await this._completeMfa(data, mfa));
@@ -321,7 +320,6 @@ class Client extends BaseClient {
    * await client.QRLogin({ onQRCode: url => console.log('Scan to log in:', url) });
    */
   async QRLogin(handlers = {}) {
-    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
     const RemoteAuth = require('./RemoteAuth');
     return this.login(await new RemoteAuth(this).run(handlers));
   }
@@ -341,7 +339,6 @@ class Client extends BaseClient {
    * await client.passkeyLogin({ credentialId: pk.credentialId, privateKey: pk.keyValue, userHandle: pk.userHandle });
    */
   async passkeyLogin(passkey) {
-    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
     const { buildAssertion } = require('./Passkey');
     const start = await this.rest.post('/auth/conditional/start', { auth: false });
     const { challenge, rpId } = JSON.parse(start.challenge).publicKey;
@@ -657,14 +654,9 @@ class Client extends BaseClient {
    * @private
    */
   _validateOptions(options = this.options) {
-    if (options.intents === undefined) {
-      // User accounts have no intents (the gateway IDENTIFY omits the field); keep an empty, frozen
-      // bitfield so `options.intents.has(...)` still works everywhere internally.
-      if (options.tokenType !== 'user') throw new DiscordjsTypeError(ErrorCodes.ClientMissingIntents);
-      options.intents = new IntentsBitField(0).freeze();
-    } else {
-      options.intents = new IntentsBitField(options.intents).freeze();
-    }
+    // User accounts have no intents; the gateway IDENTIFY omits the field. Keep an empty, frozen bitfield
+    // (when none is given) so `options.intents.has(...)` still works everywhere internally.
+    options.intents = new IntentsBitField(options.intents ?? 0).freeze();
     if (typeof options.shardCount !== 'number' || isNaN(options.shardCount) || options.shardCount < 1) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'shardCount', 'a number greater than or equal to 1');
     }
