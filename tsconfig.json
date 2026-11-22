@@ -21,15 +21,8 @@
     "resolveJsonModule": true,
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,
-    // Emit
-    "declaration": true,
-    "declarationMap": true,
-    "importHelpers": false,
-    "newLine": "lf",
-    "noEmitHelpers": true,
-    "outDir": "dist",
-    "removeComments": false,
-    "sourceMap": true,
+    // Emit: typings/ is hand-written, so tsc only type-checks
+    "noEmit": true,
     // Interop Constraints
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
