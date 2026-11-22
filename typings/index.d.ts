@@ -1186,6 +1186,31 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
   public fetchGuildWidget(guild: GuildResolvable): Promise<Widget>;
   public generateInvite(options?: InviteGenerationOptions): string;
   public login(token?: string): Promise<string>;
+  public normalLogin(
+    login: string,
+    password: string,
+    handlers?: {
+      captcha?: (challenge: {
+        captcha_sitekey: string;
+        captcha_service: string;
+        captcha_rqtoken: string;
+        captcha_rqdata?: string;
+        captcha_session_id?: string;
+      }) => Awaitable<string>;
+      mfa?: (context: {
+        ticket: string;
+        totp: boolean;
+        sms: boolean;
+        backup: boolean;
+        webauthn: boolean;
+        sendSms(): Promise<unknown>;
+      }) => Awaitable<{ method: 'totp' | 'sms' | 'backup'; code: string }>;
+    },
+  ): Promise<string>;
+  public QRLogin(handlers?: {
+    onQRCode?: (url: string) => void;
+    onUserData?: (user: { id: string; username: string; discriminator: string; avatar: string; raw: string }) => void;
+  }): Promise<string>;
   public isReady(): this is Client<true>;
   public toJSON(): unknown;
 
@@ -6261,7 +6286,8 @@ export interface ClientOptions {
   partials?: readonly Partials[];
   failIfNotExists?: boolean;
   presence?: PresenceData;
-  intents: BitFieldResolvable<GatewayIntentsString, number>;
+  intents?: BitFieldResolvable<GatewayIntentsString, number>;
+  tokenType?: 'bot' | 'user';
   waitGuildTimeout?: number;
   sweepers?: SweeperOptions;
   ws?: WebSocketOptions;
