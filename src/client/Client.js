@@ -239,21 +239,22 @@ class Client extends BaseClient {
    * through the provided handlers, then connects to the gateway like {@link Client#login}.
    * @param {string} login Email or phone number of the account
    * @param {string} password Password of the account
-   * @param {Object} [handlers] Handlers for interactive login challenges
-   * @param {Function} [handlers.captcha] `async challenge => captchaKey`; resolves a captcha challenge to its
+   * @param {Object} [options] Login options
+   * @param {string} [options.totpSecret] A TOTP (authenticator) secret; when MFA is required and TOTP is
+   * available, the code is generated automatically with otplib, so no `mfa` handler is needed for TOTP.
+   * @param {Function} [options.captcha] `async challenge => captchaKey`; resolves a captcha challenge to its
    * solved key. Without it, a captcha challenge throws {@link DiscordjsErrorCodes.CaptchaRequired}.
-   * @param {Function} [handlers.mfa] `async context => ({ method, code })`; returns the MFA method
+   * @param {Function} [options.mfa] `async context => ({ method, code })`; returns the MFA method
    * (`'totp'`, `'sms'` or `'backup'`) and its code. `context` exposes `sendSms()` to request an SMS code first.
    * @returns {Promise<string>} Token of the account logged in with
    * @example
-   * await client.normalLogin('user@example.com', 'password', {
-   *   mfa: async () => ({ method: 'totp', code: '123456' }),
-   * });
+   * // email + password + a stored 2FA secret, fully automatic:
+   * await client.normalLogin('user@example.com', 'password', { totpSecret: 'JBSWY3DP...' });
    */
-  async normalLogin(login, password, { captcha, mfa } = {}) {
+  async normalLogin(login, password, { totpSecret, captcha, mfa } = {}) {
     const body = { login, password, undelete: false, login_source: null, gift_code_sku_id: null };
     const data = await this._passwordLogin(body, captcha);
-    return this.login(await this._completeMfa(data, mfa));
+    return this.login(await this._completeMfa(data, { totpSecret, mfa }));
   }
 
   /**
@@ -280,30 +281,52 @@ class Client extends BaseClient {
   /**
    * Redeems an MFA ticket for a token when the login response requires two-factor authentication.
    * @param {Object} data The login response
-   * @param {?Function} mfa The MFA handler
+   * @param {Object} options `{ totpSecret, mfa }`
    * @returns {Promise<string>} The account token
    * @private
    */
-  async _completeMfa(data, mfa) {
+  async _completeMfa(data, { totpSecret, mfa }) {
     if (!data.mfa) return data.token;
+    // A stored TOTP secret resolves the common case automatically, without an mfa handler.
+    if (totpSecret && data.totp) {
+      const { generate } = require('otplib');
+      return this._submitMfa('totp', await generate({ secret: totpSecret }), data);
+    }
     if (!mfa) {
       const available = ['totp', 'sms', 'backup', 'webauthn'].filter(name => data[name]);
       throw new DiscordjsError(ErrorCodes.MFARequired, available.join(', '));
     }
-    const { ticket } = data;
     const { method, code } = await mfa({
-      ticket,
+      ticket: data.ticket,
       totp: Boolean(data.totp),
       sms: Boolean(data.sms),
       backup: Boolean(data.backup),
       webauthn: Boolean(data.webauthn),
-      sendSms: () => this.rest.post('/auth/mfa/sms/send', { body: { ticket }, auth: false }),
+      sendSms: () => this.rest.post('/auth/mfa/sms/send', { body: { ticket: data.ticket }, auth: false }),
     });
     if (!['totp', 'sms', 'backup'].includes(method)) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'mfa method', "one of 'totp', 'sms', 'backup'");
     }
+    return this._submitMfa(method, code, data);
+  }
+
+  /**
+   * Redeems an MFA method and code for a token.
+   * @param {string} method The MFA method (`totp`, `sms` or `backup`)
+   * @param {string} code The MFA code
+   * @param {Object} data The login response carrying the ticket
+   * @returns {Promise<string>} The account token
+   * @private
+   */
+  async _submitMfa(method, code, data) {
     const { token } = await this.rest.post(`/auth/mfa/${method}`, {
-      body: { code, ticket, login_instance_id: data.login_instance_id, login_source: null, gift_code_sku_id: null },
+      body: {
+        code,
+        ticket: data.ticket,
+        login_instance_id: data.login_instance_id,
+        login_source: null,
+        gift_code_sku_id: null,
+      },
       auth: false,
     });
     return token;

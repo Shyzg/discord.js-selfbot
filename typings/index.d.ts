@@ -1189,7 +1189,8 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
   public normalLogin(
     login: string,
     password: string,
-    handlers?: {
+    options?: {
+      totpSecret?: string;
       captcha?: (challenge: {
         captcha_sitekey: string;
         captcha_service: string;

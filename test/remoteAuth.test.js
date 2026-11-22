@@ -92,3 +92,18 @@ test('a cancel op fails the handshake', async () => {
     /cancel/i,
   );
 });
+
+test('pending_remote_init renders a QR to the terminal when no onQRCode handler is given', async () => {
+  const remote = new RemoteAuth(userClient());
+  remote.ws = { send: () => {}, close: () => {} };
+  const logs = [];
+  const original = console.log;
+  console.log = (...args) => logs.push(args.join(' '));
+  try {
+    await remote._handle({ op: 'pending_remote_init', fingerprint: 'FP' }, { resolve: () => {}, fail: () => {} });
+  } finally {
+    console.log = original;
+  }
+  assert.equal(logs.length, 1);
+  assert.match(logs[0], /discord\.com\/ra\/FP/); // the url is printed next to the rendered QR
+});

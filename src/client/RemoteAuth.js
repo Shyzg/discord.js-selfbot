@@ -72,9 +72,17 @@ class RemoteAuth {
         this._send({ op: 'nonce_proof', nonce: createHash('sha256').update(nonce).digest('base64url') });
         break;
       }
-      case 'pending_remote_init':
-        onQRCode?.(`https://discord.com/ra/${message.fingerprint}`);
+      case 'pending_remote_init': {
+        const url = `https://discord.com/ra/${message.fingerprint}`;
+        if (onQRCode) {
+          onQRCode(url);
+        } else {
+          // No handler: render a scannable QR to the terminal by default.
+          const { default: encodeQR } = await import('qr');
+          console.log(`${encodeQR(url, 'ascii')}\nScan with the Discord mobile app · ${url}`);
+        }
         break;
+      }
       case 'pending_ticket':
         onUserData?.(this._parseUser(this._decrypt(message.encrypted_user_payload).toString()));
         break;
