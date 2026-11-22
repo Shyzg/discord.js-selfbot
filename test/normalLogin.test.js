@@ -104,3 +104,19 @@ test('an unsupported MFA method (e.g. webauthn) is rejected', async () => {
     /mfa method/i,
   );
 });
+
+test('a totpSecret solves TOTP MFA automatically (no mfa handler)', async () => {
+  const posts = [];
+  const client = stubClient(async (route, opts) => {
+    posts.push([route, opts]);
+    if (route === '/auth/login') return { mfa: true, ticket: 'TK', totp: true, login_instance_id: 'LI' };
+    if (route === '/auth/mfa/totp') return { token: 'MFATOKEN' };
+    throw new Error(`unexpected route ${route}`);
+  });
+  // 32 base32 chars = 20 bytes, clearing otplib's >=16-byte guardrail
+  const token = await client.normalLogin('user@example.com', 'pw', { totpSecret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ' });
+  assert.equal(token, 'MFATOKEN');
+  const mfaCall = posts.find(p => p[0] === '/auth/mfa/totp')[1];
+  assert.match(mfaCall.body.code, /^\d{6}$/); // a real generated TOTP code
+  assert.equal(mfaCall.body.ticket, 'TK');
+});
