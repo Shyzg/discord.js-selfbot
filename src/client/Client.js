@@ -235,6 +235,98 @@ class Client extends BaseClient {
   }
 
   /**
+   * Logs in with an email/phone and password (user accounts only), resolving captcha and MFA challenges
+   * through the provided handlers, then connects to the gateway like {@link Client#login}.
+   * @param {string} login Email or phone number of the account
+   * @param {string} password Password of the account
+   * @param {Object} [handlers] Handlers for interactive login challenges
+   * @param {Function} [handlers.captcha] `async challenge => captchaKey`; resolves a captcha challenge to its
+   * solved key. Without it, a captcha challenge throws {@link DiscordjsErrorCodes.CaptchaRequired}.
+   * @param {Function} [handlers.mfa] `async context => ({ method, code })`; returns the MFA method
+   * (`'totp'`, `'sms'` or `'backup'`) and its code. `context` exposes `sendSms()` to request an SMS code first.
+   * @returns {Promise<string>} Token of the account logged in with
+   * @example
+   * await client.normalLogin('user@example.com', 'password', {
+   *   mfa: async () => ({ method: 'totp', code: '123456' }),
+   * });
+   */
+  async normalLogin(login, password, { captcha, mfa } = {}) {
+    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
+    const body = { login, password, undelete: false, login_source: null, gift_code_sku_id: null };
+    const data = await this._passwordLogin(body, captcha);
+    return this.login(await this._completeMfa(data, mfa));
+  }
+
+  /**
+   * Posts credentials to the login endpoint, retrying once through the captcha handler if challenged.
+   * @param {Object} body The login request body
+   * @param {?Function} captcha The captcha handler
+   * @returns {Promise<Object>} The login response
+   * @private
+   */
+  async _passwordLogin(body, captcha) {
+    try {
+      return await this.rest.post('/auth/login', { body, auth: false });
+    } catch (error) {
+      const challenge = error?.rawError;
+      if (!challenge?.captcha_service) throw error;
+      if (!captcha) throw new DiscordjsError(ErrorCodes.CaptchaRequired, challenge.captcha_service);
+      // shortcut: a single captcha retry; a second challenge rethrows. Upgrade if Discord chains captchas.
+      const headers = { 'x-captcha-key': await captcha(challenge), 'x-captcha-rqtoken': challenge.captcha_rqtoken };
+      if (challenge.captcha_session_id) headers['x-captcha-session-id'] = challenge.captcha_session_id;
+      return this.rest.post('/auth/login', { body, auth: false, headers });
+    }
+  }
+
+  /**
+   * Redeems an MFA ticket for a token when the login response requires two-factor authentication.
+   * @param {Object} data The login response
+   * @param {?Function} mfa The MFA handler
+   * @returns {Promise<string>} The account token
+   * @private
+   */
+  async _completeMfa(data, mfa) {
+    if (!data.mfa) return data.token;
+    if (!mfa) {
+      const available = ['totp', 'sms', 'backup', 'webauthn'].filter(name => data[name]);
+      throw new DiscordjsError(ErrorCodes.MFARequired, available.join(', '));
+    }
+    const { ticket } = data;
+    const { method, code } = await mfa({
+      ticket,
+      totp: Boolean(data.totp),
+      sms: Boolean(data.sms),
+      backup: Boolean(data.backup),
+      webauthn: Boolean(data.webauthn),
+      sendSms: () => this.rest.post('/auth/mfa/sms/send', { body: { ticket }, auth: false }),
+    });
+    if (!['totp', 'sms', 'backup'].includes(method)) {
+      throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'mfa method', "one of 'totp', 'sms', 'backup'");
+    }
+    const { token } = await this.rest.post(`/auth/mfa/${method}`, {
+      body: { code, ticket, login_instance_id: data.login_instance_id, login_source: null, gift_code_sku_id: null },
+      auth: false,
+    });
+    return token;
+  }
+
+  /**
+   * Logs in by QR code (user accounts only) using Discord's remote-auth flow, then connects like
+   * {@link Client#login}. The returned promise resolves once the code is scanned and approved on a device.
+   * @param {Object} [handlers] Handlers for the QR login UI
+   * @param {Function} [handlers.onQRCode] `url => void`; render this URL as a QR code for the Discord app to scan
+   * @param {Function} [handlers.onUserData] `user => void`; optional preview of the account once the QR is scanned
+   * @returns {Promise<string>} Token of the account logged in with
+   * @example
+   * await client.QRLogin({ onQRCode: url => console.log('Scan to log in:', url) });
+   */
+  async QRLogin(handlers = {}) {
+    if (this.options.tokenType !== 'user') throw new DiscordjsError(ErrorCodes.ClientNotUserAccount);
+    const RemoteAuth = require('./RemoteAuth');
+    return this.login(await new RemoteAuth(this).run(handlers));
+  }
+
+  /**
    * Returns whether the client has logged in, indicative of being able to access
    * properties such as `user` and `application`.
    * @returns {boolean}
@@ -539,7 +631,10 @@ class Client extends BaseClient {
    */
   _validateOptions(options = this.options) {
     if (options.intents === undefined) {
-      throw new DiscordjsTypeError(ErrorCodes.ClientMissingIntents);
+      // User accounts have no intents (the gateway IDENTIFY omits the field); keep an empty, frozen
+      // bitfield so `options.intents.has(...)` still works everywhere internally.
+      if (options.tokenType !== 'user') throw new DiscordjsTypeError(ErrorCodes.ClientMissingIntents);
+      options.intents = new IntentsBitField(0).freeze();
     } else {
       options.intents = new IntentsBitField(options.intents).freeze();
     }

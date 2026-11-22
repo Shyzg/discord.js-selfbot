@@ -34,7 +34,10 @@ const { version } = require('../../package.json');
  * important usage information, as partials require you to put checks in place when handling data.
  * @property {boolean} [failIfNotExists=true] The default value for {@link MessageReplyOptions#failIfNotExists}
  * @property {PresenceData} [presence={}] Presence data to use upon login
- * @property {IntentsResolvable} intents Intents to enable for this connection
+ * @property {IntentsResolvable} [intents] Intents to enable for this connection (required for bot tokens; omitted
+ * for user accounts)
+ * @property {string} [tokenType='bot'] Auth token type: `'bot'` or `'user'` (user-account/selfbot). User mode sends
+ * the web-client fingerprint, drops the `Bot ` scheme prefix, and omits gateway intents.
  * @property {number} [waitGuildTimeout=15_000] Time in milliseconds that clients with the
  * {@link GatewayIntentBits.Guilds} gateway intent should wait for missing guilds to be received before being ready.
  * @property {SweeperOptions} [sweepers=this.DefaultSweeperSettings] Options for cache sweeping
@@ -115,6 +118,7 @@ class Options extends null {
       closeTimeout: 5_000,
       waitGuildTimeout: 15_000,
       shardCount: 1,
+      tokenType: 'bot',
       makeCache: this.cacheWithLimits(this.DefaultMakeCacheSettings),
       partials: [],
       failIfNotExists: true,

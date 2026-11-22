@@ -7,6 +7,10 @@
  * @property {'ClientInvalidProvidedShards'} ClientInvalidProvidedShards
  * @property {'ClientMissingIntents'} ClientMissingIntents
  * @property {'ClientNotReady'} ClientNotReady
+ * @property {'ClientNotUserAccount'} ClientNotUserAccount
+ * @property {'CaptchaRequired'} CaptchaRequired
+ * @property {'MFARequired'} MFARequired
+ * @property {'RemoteAuthFailed'} RemoteAuthFailed
 
  * @property {'TokenInvalid'} TokenInvalid
  * @property {'TokenMissing'} TokenMissing
@@ -192,6 +196,10 @@ const keys = [
   'ClientInvalidProvidedShards',
   'ClientMissingIntents',
   'ClientNotReady',
+  'ClientNotUserAccount',
+  'CaptchaRequired',
+  'MFARequired',
+  'RemoteAuthFailed',
 
   'TokenInvalid',
   'TokenMissing',

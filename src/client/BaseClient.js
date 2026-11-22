@@ -48,6 +48,17 @@ class BaseClient extends EventEmitter {
       },
     };
 
+    // User-account auth: attach the web-client fingerprint to every request and drop the `Bot ` token scheme.
+    if (this.options.tokenType === 'user') {
+      const { userHeaders, fixUserRequestHeaders } = require('../util/UserProperties');
+      const inner = this.options.rest.makeRequest;
+      this.options.rest.headers = { ...userHeaders, ...this.options.rest.headers };
+      this.options.rest.makeRequest = (url, init) => {
+        fixUserRequestHeaders(init.headers);
+        return inner(url, init);
+      };
+    }
+
     /**
      * The REST manager of the client
      * @type {REST}
