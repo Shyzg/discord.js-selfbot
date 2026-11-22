@@ -7,7 +7,6 @@ const process = require('node:process');
 const { setTimeout: sleep } = require('node:timers/promises');
 const util = require('node:util');
 const { GatewayIntentBits } = require('discord-api-types/v10');
-const { fetch } = require('undici');
 const { owner, token } = require('./auth.js');
 const { Client, MessageAttachment, Embed, Events } = require('../src');
 

@@ -44,12 +44,6 @@ importers:
       tslib:
         specifier: ^2.9.1
         version: 2.9.1
-      undici:
-        specifier: ^8.13.1
-        version: 8.13.1
-      ws:
-        specifier: ^8.23.0
-        version: 8.23.0
     devDependencies:
       '@biomejs/biome':
         specifier: 2.6.8
@@ -655,10 +649,6 @@ packages:
     resolution: {integrity: sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==}
     engines: {node: '>=18.17'}
 
-  undici@8.13.1:
-    resolution: {integrity: sha512-Kt7EaPjh0s93lJH/PmW3d5rhkcpUa6fS3jqZ7+YGxNd9L7Xy/i827xe4C2uhhq+pJebM4tQOl5AgHmW11G5Skg==}
-    engines: {node: '>=22.19.0'}
-
   validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}
 
@@ -1224,8 +1214,6 @@ snapshots:
   undici-types@7.24.6: {}
 
   undici@6.29.1: {}
-
-  undici@8.13.1: {}
 
   validate-npm-package-license@3.0.4:
     dependencies:

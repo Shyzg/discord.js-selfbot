@@ -5,7 +5,6 @@ const { createReadStream } = require('node:fs');
 const path = require('node:path');
 const { setTimeout: sleep } = require('node:timers/promises');
 const util = require('node:util');
-const { fetch } = require('undici');
 const { Client, GatewayIntentBits, AttachmentBuilder, EmbedBuilder, MessageFlags, ComponentType } = require('../src');
 
 const client = new Client({

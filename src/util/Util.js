@@ -4,7 +4,6 @@ const { parse } = require('node:path');
 const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
 const { ChannelType, RouteBases, Routes } = require('discord-api-types/v10');
-const { fetch } = require('undici');
 const Colors = require('./Colors');
 const PermissionsBitField = require('./PermissionsBitField');
 const { DiscordjsError, DiscordjsRangeError, DiscordjsTypeError, ErrorCodes } = require('../errors');

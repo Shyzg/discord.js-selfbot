@@ -5,7 +5,6 @@ const path = require('node:path');
 const { setTimeout: sleep } = require('node:timers/promises');
 const util = require('node:util');
 const { GatewayIntentBits } = require('discord-api-types/v10');
-const { fetch } = require('undici');
 const { owner, token, webhookChannel, webhookToken } = require('./auth.js');
 const { Client, MessageAttachment, Embed, WebhookClient } = require('../src');
 
