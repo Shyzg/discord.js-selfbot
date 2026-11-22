@@ -61,4 +61,22 @@ function fixUserRequestHeaders(headers) {
   return headers;
 }
 
-module.exports = { USER_AGENT, superProperties, userHeaders, fixUserRequestHeaders };
+// The web client's gateway IDENTIFY `capabilities` bitfield, which selects the modern (user) event format.
+// shortcut: point-in-time snapshot; refresh alongside client_build_number if the gateway starts rejecting it.
+const CAPABILITIES = 1767421;
+
+/**
+ * Rewrites a gateway IDENTIFY `d` to match the web client for user accounts: adds `capabilities` and
+ * `client_state`, and removes the bot-only `shard` field. Mutates and returns `d`.
+ * @param {Object} d The IDENTIFY data object built by @discordjs/ws
+ * @returns {Object}
+ * @private
+ */
+function applyUserIdentify(d) {
+  d.capabilities = CAPABILITIES;
+  d.client_state = { guild_versions: {} };
+  delete d.shard;
+  return d;
+}
+
+module.exports = { USER_AGENT, superProperties, userHeaders, fixUserRequestHeaders, CAPABILITIES, applyUserIdentify };
