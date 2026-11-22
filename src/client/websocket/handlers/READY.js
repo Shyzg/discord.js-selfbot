@@ -17,10 +17,13 @@ module.exports = (client, { d: data }, shard) => {
     client.guilds._add(guild);
   }
 
-  if (client.application) {
-    client.application._patch(data.application);
-  } else {
-    client.application = new ClientApplication(client, data.application);
+  // User accounts have no application in READY (it is a bot-only field).
+  if (data.application) {
+    if (client.application) {
+      client.application._patch(data.application);
+    } else {
+      client.application = new ClientApplication(client, data.application);
+    }
   }
 
   shard.checkReady();
