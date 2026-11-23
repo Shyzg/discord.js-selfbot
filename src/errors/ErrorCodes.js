@@ -92,6 +92,7 @@
 
  * @property {'MessageBulkDeleteType'} MessageBulkDeleteType
  * @property {'MessageContentType'} MessageContentType
+ * @property {'MessageEmbedsUserAccount'} MessageEmbedsUserAccount
  * @property {'MessageNonceRequired'} MessageNonceRequired
  * @property {'MessageNonceType'} MessageNonceType
 
@@ -261,6 +262,7 @@ const keys = [
 
   'MessageBulkDeleteType',
   'MessageContentType',
+  'MessageEmbedsUserAccount',
   'MessageNonceRequired',
   'MessageNonceType',
 
