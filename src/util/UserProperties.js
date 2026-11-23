@@ -1,8 +1,9 @@
 'use strict';
 
 const { Buffer } = require('node:buffer');
+const { randomUUID } = require('node:crypto');
 
-// Discord web-client identity for user-account ("selfbot") auth, captured from the real client on 2026-11-22.
+// Discord web-client identity for user-account ("selfbot") auth, captured from the real client on 2026-11-23.
 // shortcut: client_build_number is a point-in-time snapshot; refresh it when logins start failing with
 // 401 / "client outdated", since Discord rejects a stale build.
 const USER_AGENT =
@@ -10,6 +11,8 @@ const USER_AGENT =
 
 /**
  * The web-client fingerprint sent as `x-super-properties` (REST) and the gateway IDENTIFY `properties`.
+ * The per-launch ids are generated once per process, so REST and the gateway share one "launch" like a
+ * single browser session would.
  * @type {Object}
  * @private
  */
@@ -17,17 +20,23 @@ const superProperties = {
   os: 'Mac OS X',
   browser: 'Chrome',
   device: '',
+  device_model_name: '',
   system_locale: 'en-US',
+  has_client_mods: false,
   browser_user_agent: USER_AGENT,
   browser_version: '158.0.0.0',
   os_version: '10.15.7',
-  referrer: '',
-  referring_domain: '',
-  referrer_current: '',
-  referring_domain_current: '',
+  referrer: 'https://discord.com/',
+  referring_domain: 'discord.com',
+  referrer_current: 'https://discord.com/',
+  referring_domain_current: 'discord.com',
   release_channel: 'stable',
-  client_build_number: 678976,
+  client_build_number: 679055,
   client_event_source: null,
+  client_launch_id: randomUUID(),
+  launch_signature: randomUUID(),
+  client_heartbeat_session_id: randomUUID(),
+  client_app_state: 'focused',
 };
 
 /**
