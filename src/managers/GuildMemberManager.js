@@ -1,6 +1,6 @@
 'use strict';
 
-const { process } = require('node:process');
+const process = require('node:process');
 const { setTimeout, clearTimeout } = require('node:timers');
 const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
@@ -222,18 +222,23 @@ class GuildMemberManager extends CachedManager {
    * Fetches members through the gateway member list (op 14) — the mechanism user accounts use instead of the
    * bot-only op 8 `REQUEST_GUILD_MEMBERS`, which Discord ignores for users on sizable guilds. Members are read
    * from a channel's displayed list, so pass a channel whose list reflects the whole guild (e.g. one `@everyone`
-   * can view). Best-effort: it streams ranges and resolves once updates settle (or `limit` is reached).
+   * can view). Best-effort: it streams ranges and resolves once updates settle (or `limit` is reached), and rejects
+   * with `GuildMembersTimeout` if no member arrives within `time`.
    * @param {GuildChannelResolvable} channel A channel whose member list to read
-   * @param {Object} [options] Options
-   * @param {number} [options.limit] Stop once this many members are collected (default: the whole list)
+   * @param {Object} options Options
+   * @param {number} options.limit Stop once this many members are collected
    * @param {number} [options.time=5000] Idle time (ms) after the last update before resolving
    * @returns {Promise<Collection<Snowflake, GuildMember>>}
    */
   fetchMemberList(channel, { limit, time = 5_000 } = {}) {
     const channelId = this.guild.channels.resolveId(channel);
     if (!channelId) throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'channel', 'a channel in this guild');
-    const target = limit ?? this.guild.memberCount ?? 100;
-    return new Promise(resolve => {
+    // op-14 is a windowed subscription, not a bulk fetch: require an explicit limit so a no-arg call can't
+    // size itself to the whole guild and flood the gateway (use GuildMemberManager#fetch for the full list).
+    if (typeof limit !== 'number' || limit < 1) {
+      throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'limit', 'a positive number');
+    }
+    return new Promise((resolve, reject) => {
       const collected = new Collection();
       const cleanup = () => {
         clearTimeout(timer);
@@ -242,7 +247,9 @@ class GuildMemberManager extends CachedManager {
       };
       const timer = setTimeout(() => {
         cleanup();
-        resolve(collected);
+        // The list always contains you, so an empty result means Discord ignored the request.
+        if (collected.size) resolve(collected);
+        else reject(new DiscordjsError(ErrorCodes.GuildMembersTimeout));
       }, time).unref();
       const handler = packet => {
         if (packet.t !== 'GUILD_MEMBER_LIST_UPDATE' || packet.d.guild_id !== this.guild.id) return;
@@ -260,9 +267,9 @@ class GuildMemberManager extends CachedManager {
       };
       this.client.incrementMaxListeners();
       this.client.on(Events.Raw, handler);
-      // Request member-list ranges (100 per range, 3 ranges per op-14 frame) covering the target.
+      // Request member-list ranges (100 indices per range, 3 ranges per op-14 frame) covering the limit.
       const ranges = [];
-      for (let start = 0; start < target + 100; start += 100) ranges.push([start, start + 99]);
+      for (let start = 0; start < limit; start += 100) ranges.push([start, start + 99]);
       for (let i = 0; i < ranges.length; i += 3) {
         this.guild.shard.send({
           op: 14,

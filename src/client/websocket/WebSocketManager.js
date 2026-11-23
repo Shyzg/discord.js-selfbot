@@ -139,7 +139,7 @@ class WebSocketManager extends EventEmitter {
    */
   async connect() {
     const invalidToken = new DiscordjsError(ErrorCodes.TokenInvalid);
-    const { shards, shardCount, ws } = this.client.options;
+    const { ws } = this.client.options;
     // A previous destroy() must not leave this new session marked as destroyed
     this.destroyed = false;
     if (this._ws && this._ws.token !== this.client.token) {
@@ -153,8 +153,9 @@ class WebSocketManager extends EventEmitter {
         rest: this.client.rest,
         largeThreshold: ws.large_threshold,
         version: ws.version,
-        shardIds: shards === 'auto' ? null : shards,
-        shardCount: shards === 'auto' ? null : shardCount,
+        // A user account has one gateway session; a second "shard" would be a duplicate session getting every event.
+        shardIds: [0],
+        shardCount: 1,
         initialPresence: ws.presence,
         retrieveSessionInfo: shardId => this.shards.get(shardId).sessionInfo,
         updateSessionInfo: (shardId, sessionInfo) => {

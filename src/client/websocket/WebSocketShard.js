@@ -143,7 +143,8 @@ class WebSocketShard extends EventEmitter {
      */
     this.emit(WebSocketShardEvents.Ready);
 
-    this.expectedGuilds = new Set(packet.guilds.map(guild => guild.id));
+    // A bot READY lists only unavailable stubs, but a user READY carries full guilds: wait only for the stubs.
+    this.expectedGuilds = new Set(packet.guilds.filter(guild => guild.unavailable).map(guild => guild.id));
     this.status = Status.WaitingForGuilds;
   }
 

@@ -8,9 +8,6 @@ polyfillDispose();
 // "Root" classes (starting points)
 exports.BaseClient = require('./client/BaseClient');
 exports.Client = require('./client/Client');
-exports.Shard = require('./sharding/Shard');
-exports.ShardClientUtil = require('./sharding/ShardClientUtil');
-exports.ShardingManager = require('./sharding/ShardingManager');
 exports.WebhookClient = require('./client/WebhookClient');
 
 // Errors
@@ -40,7 +37,6 @@ exports.Options = require('./util/Options');
 exports.Partials = require('./util/Partials');
 exports.PermissionsBitField = require('./util/PermissionsBitField');
 exports.RoleFlagsBitField = require('./util/RoleFlagsBitField');
-exports.ShardEvents = require('./util/ShardEvents');
 exports.SKUFlagsBitField = require('./util/SKUFlagsBitField').SKUFlagsBitField;
 exports.Status = require('./util/Status');
 exports.SnowflakeUtil = require('@sapphire/snowflake').DiscordSnowflake;

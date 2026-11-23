@@ -4,7 +4,6 @@ const DjsErrorCodes = require('./ErrorCodes');
 
 const Messages = {
   [DjsErrorCodes.ClientInvalidOption]: (prop, must) => `The ${prop} option must be ${must}`,
-  [DjsErrorCodes.ClientInvalidProvidedShards]: 'None of the provided shards were valid.',
   [DjsErrorCodes.ClientMissingIntents]: 'Valid intents must be provided for the Client.',
   [DjsErrorCodes.ClientNotReady]: action => `The client needs to be logged in to ${action}.`,
   [DjsErrorCodes.CaptchaRequired]: service =>
@@ -25,23 +24,8 @@ const Messages = {
 
   [DjsErrorCodes.BitFieldInvalid]: bit => `Invalid bitfield flag or number: ${bit}.`,
 
-  [DjsErrorCodes.ShardingInvalid]: 'Invalid shard settings were provided.',
-  [DjsErrorCodes.ShardingRequired]: 'This session would have handled too many guilds - Sharding is required.',
   [DjsErrorCodes.InvalidIntents]: 'Invalid intent provided for WebSocket intents.',
   [DjsErrorCodes.DisallowedIntents]: 'Privileged intent provided is not enabled or whitelisted.',
-  [DjsErrorCodes.ShardingNoShards]: 'No shards have been spawned.',
-  [DjsErrorCodes.ShardingInProcess]: 'Shards are still being spawned.',
-  [DjsErrorCodes.ShardingInvalidEvalBroadcast]: 'Script to evaluate must be a function',
-  [DjsErrorCodes.ShardingShardNotFound]: id => `Shard ${id} could not be found.`,
-  [DjsErrorCodes.ShardingAlreadySpawned]: count => `Already spawned ${count} shards.`,
-  [DjsErrorCodes.ShardingProcessExists]: id => `Shard ${id} already has an active process.`,
-  [DjsErrorCodes.ShardingWorkerExists]: id => `Shard ${id} already has an active worker.`,
-  [DjsErrorCodes.ShardingReadyTimeout]: id => `Shard ${id}'s Client took too long to become ready.`,
-  [DjsErrorCodes.ShardingReadyDisconnected]: id => `Shard ${id}'s Client disconnected before becoming ready.`,
-  [DjsErrorCodes.ShardingReadyDied]: id => `Shard ${id}'s process exited before its Client became ready.`,
-  [DjsErrorCodes.ShardingNoChildExists]: id => `Shard ${id} has no active process or worker.`,
-  [DjsErrorCodes.ShardingShardMiscalculation]: (shard, guild, count) =>
-    `Calculated invalid shard ${shard} for guild ${guild} with ${count} shards.`,
 
   [DjsErrorCodes.ColorRange]: 'Color must be within the range 0 - 16777215 (0xFFFFFF).',
   [DjsErrorCodes.ColorConvert]: color => `Unable to convert "${color}" to a number.`,

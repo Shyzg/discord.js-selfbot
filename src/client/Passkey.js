@@ -3,6 +3,8 @@
 const { createPrivateKey, createHash, sign, KeyObject } = require('node:crypto');
 const { Buffer } = require('node:buffer');
 
+const GUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+
 function resolveKey(privateKey) {
   if (privateKey instanceof KeyObject) return privateKey;
   // A base64url/base64 PKCS8 DER string (e.g. a Bitwarden fido2 `keyValue`).
@@ -22,7 +24,9 @@ function resolveKey(privateKey) {
  * @private
  */
 function buildAssertion(passkey, rpId, challenge) {
-  const id = passkey.credentialId.replace(/^b64\./, '');
+  let id = passkey.credentialId.replace(/^b64\./, '');
+  // Bitwarden stores passkeys it created as a GUID but registered the GUID's 16 raw bytes as the credential id.
+  if (GUID.test(id)) id = Buffer.from(id.replaceAll('-', ''), 'hex').toString('base64url');
   const clientDataJSON = JSON.stringify({
     type: 'webauthn.get',
     challenge,

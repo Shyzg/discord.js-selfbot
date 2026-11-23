@@ -7,7 +7,6 @@ const { makeURLSearchParams } = require('@discordjs/rest');
 const { GatewayOpcodes, Routes, RouteBases } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
 const { ErrorCodes, DiscordjsError } = require('../errors/index.js');
-const ShardClientUtil = require('../sharding/ShardClientUtil');
 const { Guild } = require('../structures/Guild');
 const GuildChannel = require('../structures/GuildChannel');
 const GuildEmoji = require('../structures/GuildEmoji');
@@ -275,7 +274,7 @@ class GuildManager extends CachedManager {
       const data = await this.client.rest.get(Routes.guild(id), {
         query: makeURLSearchParams({ with_counts: options.withCounts ?? true }),
       });
-      data.shardId = ShardClientUtil.shardIdForGuildId(id, this.client.options.shardCount);
+      data.shardId = 0;
       return this._add(data, options.cache);
     }
 
@@ -302,25 +301,12 @@ class GuildManager extends CachedManager {
    * console.log(soundboardSounds.get('123456789012345678'));
    */
   async fetchSoundboardSounds({ guildIds, time = 10_000 }) {
-    const shardCount = this.client.options.shardCount;
-    const shardIds = new Map();
-
-    for (const guildId of guildIds) {
-      const shardId = ShardClientUtil.shardIdForGuildId(guildId, shardCount);
-      const group = shardIds.get(shardId);
-
-      if (group) group.push(guildId);
-      else shardIds.set(shardId, [guildId]);
-    }
-
-    for (const [shardId, shardGuildIds] of shardIds) {
-      this.client.ws.shards.get(shardId).send({
-        op: GatewayOpcodes.RequestSoundboardSounds,
-        d: {
-          guild_ids: shardGuildIds,
-        },
-      });
-    }
+    this.client.ws.shards.get(0).send({
+      op: GatewayOpcodes.RequestSoundboardSounds,
+      d: {
+        guild_ids: guildIds,
+      },
+    });
 
     return new Promise((resolve, reject) => {
       const remainingGuildIds = new Set(guildIds);
