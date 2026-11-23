@@ -43,9 +43,6 @@ const Messages = {
   [DjsErrorCodes.SelectOptionValue]: 'MessageSelectOption value must be a string',
   [DjsErrorCodes.SelectOptionDescription]: 'MessageSelectOption description must be a string',
 
-  [DjsErrorCodes.InteractionCollectorError]: reason =>
-    `Collector received no interactions before ending with reason: ${reason}`,
-
   [DjsErrorCodes.FileNotFound]: file => `File could not be found: ${file}`,
 
   [DjsErrorCodes.UserBannerNotFetched]: "You must fetch this user's banner before trying to generate its URL!",
@@ -132,30 +129,6 @@ const Messages = {
   [DjsErrorCodes.GuildUncachedEntityResolve]: type =>
     `Cannot resolve ${type} from an arbitrary guild, provide an id instead`,
 
-  [DjsErrorCodes.InteractionAlreadyReplied]: 'The reply to this interaction has already been sent or deferred.',
-  [DjsErrorCodes.InteractionNotReplied]: 'The reply to this interaction has not been sent or deferred.',
-  [DjsErrorCodes.InteractionEphemeralReplied]: 'Ephemeral responses cannot be deleted.',
-
-  [DjsErrorCodes.CommandInteractionOptionNotFound]: name => `Required option "${name}" not found.`,
-  [DjsErrorCodes.CommandInteractionOptionType]: (name, type, expected) =>
-    `Option "${name}" is of type: ${type}; expected ${expected}.`,
-  [DjsErrorCodes.CommandInteractionOptionEmpty]: (name, type) =>
-    `Required option "${name}" is of type: ${type}; expected a non-empty value.`,
-  [DjsErrorCodes.CommandInteractionOptionNoSubcommand]: 'No subcommand specified for interaction.',
-  [DjsErrorCodes.CommandInteractionOptionNoSubcommandGroup]: 'No subcommand group specified for interaction.',
-  [DjsErrorCodes.CommandInteractionOptionInvalidChannelType]: (name, type, expected) =>
-    `The type of channel of the option "${name}" is: ${type}; expected ${expected}.`,
-  [DjsErrorCodes.AutocompleteInteractionOptionNoFocusedOption]: 'No focused option for autocomplete interaction.',
-
-  [DjsErrorCodes.ModalSubmitInteractionFieldNotFound]: customId =>
-    `Required field with custom id "${customId}" not found.`,
-  [DjsErrorCodes.ModalSubmitInteractionFieldType]: (customId, type, expected) =>
-    `Field with custom id "${customId}" is of type: ${type}; expected ${expected}.`,
-  [DjsErrorCodes.ModalSubmitInteractionFieldEmpty]: (customId, type) =>
-    `Required field with custom id "${customId}" is of type: ${type}; expected a non-empty value.`,
-  [DjsErrorCodes.ModalSubmitInteractionFieldInvalidChannelType]: (customId, type, expected) =>
-    `The type of channel of the field with custom id "${customId}" is: ${type}; expected ${expected}.`,
-
   [DjsErrorCodes.InvalidMissingScopes]: 'At least one valid scope must be provided for the invite',
   [DjsErrorCodes.InvalidScopesWithPermissions]: 'Permissions cannot be set without the bot scope.',
 
@@ -164,9 +137,6 @@ const Messages = {
   [DjsErrorCodes.SweepFilterReturn]: 'The return value of the sweepFilter function was not false or a Function',
 
   [DjsErrorCodes.GuildForumMessageRequired]: 'You must provide a message to create a guild forum thread',
-
-  [DjsErrorCodes.EntitlementCreateInvalidOwner]:
-    'You must provide either a guild or a user to create an entitlement, but not both',
 
   [DjsErrorCodes.BulkBanUsersOptionEmpty]: 'Option "users" array or collection is empty',
 

@@ -1,16 +1,12 @@
 'use strict';
 
-const { Collection } = require('@discordjs/collection');
 const { Routes } = require('discord-api-types/v10');
 const { ActivityInstance } = require('./ActivityInstance');
 const { ApplicationRoleConnectionMetadata } = require('./ApplicationRoleConnectionMetadata');
-const { SKU } = require('./SKU');
 const Team = require('./Team');
 const Application = require('./interfaces/Application');
 const ApplicationCommandManager = require('../managers/ApplicationCommandManager');
 const ApplicationEmojiManager = require('../managers/ApplicationEmojiManager');
-const { EntitlementManager } = require('../managers/EntitlementManager');
-const { SubscriptionManager } = require('../managers/SubscriptionManager');
 const ApplicationFlagsBitField = require('../util/ApplicationFlagsBitField');
 const { resolveImage } = require('../util/DataResolver');
 const PermissionsBitField = require('../util/PermissionsBitField');
@@ -40,18 +36,6 @@ class ClientApplication extends Application {
      * @type {ApplicationEmojiManager}
      */
     this.emojis = new ApplicationEmojiManager(this);
-
-    /**
-     * The entitlement manager for this application
-     * @type {EntitlementManager}
-     */
-    this.entitlements = new EntitlementManager(this.client);
-
-    /**
-     * The subscription manager for this application
-     * @type {SubscriptionManager}
-     */
-    this.subscriptions = new SubscriptionManager(this.client);
   }
 
   _patch(data) {
@@ -401,15 +385,6 @@ class ClientApplication extends Application {
     });
 
     return newRecords.map(data => new ApplicationRoleConnectionMetadata(data));
-  }
-
-  /**
-   * Gets this application's SKUs
-   * @returns {Promise<Collection<Snowflake, SKU>>}
-   */
-  async fetchSKUs() {
-    const skus = await this.client.rest.get(Routes.skus(this.id));
-    return skus.reduce((coll, sku) => coll.set(sku.id, new SKU(this.client, sku)), new Collection());
   }
 
   /**

@@ -4,7 +4,6 @@ const { Collection } = require('@discordjs/collection');
 const { messageLink } = require('@discordjs/formatters');
 const { DiscordSnowflake } = require('@sapphire/snowflake');
 const {
-  InteractionType,
   ChannelType,
   MessageType,
   MessageFlags,
@@ -15,7 +14,6 @@ const Attachment = require('./Attachment');
 const Base = require('./Base');
 const ClientApplication = require('./ClientApplication');
 const Embed = require('./Embed');
-const InteractionCollector = require('./InteractionCollector');
 const Mentions = require('./MessageMentions');
 const MessagePayload = require('./MessagePayload');
 const { Poll } = require('./Poll.js');
@@ -664,68 +662,6 @@ class Message extends Base {
       collector.once('end', (reactions, reason) => {
         if (options.errors?.includes(reason)) reject(reactions);
         else resolve(reactions);
-      });
-    });
-  }
-
-  /**
-   * @typedef {CollectorOptions} MessageComponentCollectorOptions
-   * @property {ComponentType} [componentType] The type of component to listen for
-   * @property {number} [max] The maximum total amount of interactions to collect
-   * @property {number} [maxComponents] The maximum number of components to collect
-   * @property {number} [maxUsers] The maximum number of users to interact
-   */
-
-  /**
-   * Creates a message component interaction collector.
-   * @param {MessageComponentCollectorOptions} [options={}] Options to send to the collector
-   * @returns {InteractionCollector}
-   * @example
-   * // Create a message component interaction collector
-   * const filter = (interaction) => interaction.customId === 'button' && interaction.user.id === 'someId';
-   * const collector = message.createMessageComponentCollector({ filter, time: 15_000 });
-   * collector.on('collect', i => console.log(`Collected ${i.customId}`));
-   * collector.on('end', collected => console.log(`Collected ${collected.size} items`));
-   */
-  createMessageComponentCollector(options = {}) {
-    return new InteractionCollector(this.client, {
-      ...options,
-      interactionType: InteractionType.MessageComponent,
-      message: this,
-    });
-  }
-
-  /**
-   * An object containing the same properties as CollectorOptions, but a few more:
-   * @typedef {Object} AwaitMessageComponentOptions
-   * @property {CollectorFilter} [filter] The filter applied to this collector
-   * @property {number} [time] Time to wait for an interaction before rejecting
-   * @property {ComponentType} [componentType] The type of component interaction to collect
-   * @property {number} [idle] Time to wait without another message component interaction before ending the collector
-   * @property {boolean} [dispose] Whether to remove the message component interaction after collecting
-   * @property {InteractionResponse} [interactionResponse] The interaction response to collect interactions from
-   */
-
-  /**
-   * Collects a single component interaction that passes the filter.
-   * The Promise will reject if the time expires.
-   * @param {AwaitMessageComponentOptions} [options={}] Options to pass to the internal collector
-   * @returns {Promise<MessageComponentInteraction>}
-   * @example
-   * // Collect a message component interaction
-   * const filter = (interaction) => interaction.customId === 'button' && interaction.user.id === 'someId';
-   * message.awaitMessageComponent({ filter, time: 15_000 })
-   *   .then(interaction => console.log(`${interaction.customId} was clicked!`))
-   *   .catch(console.error);
-   */
-  awaitMessageComponent(options = {}) {
-    const _options = { ...options, max: 1 };
-    return new Promise((resolve, reject) => {
-      const collector = this.createMessageComponentCollector(_options);
-      collector.once('end', (interactions, reason) => {
-        const interaction = interactions.first();
-        if (interaction) resolve(interaction);
-        else reject(new DiscordjsError(ErrorCodes.InteractionCollectorError, reason));
       });
     });
   }

@@ -19,9 +19,6 @@ class ActionsManager {
     this.ChannelCreate = this.load(require('./ChannelCreate.js'));
     this.ChannelDelete = this.load(require('./ChannelDelete.js'));
     this.ChannelUpdate = this.load(require('./ChannelUpdate.js'));
-    this.EntitlementCreate = this.load(require('./EntitlementCreate.js'));
-    this.EntitlementDelete = this.load(require('./EntitlementDelete.js'));
-    this.EntitlementUpdate = this.load(require('./EntitlementUpdate.js'));
     this.GuildAuditLogEntryCreate = this.load(require('./GuildAuditLogEntryCreate.js'));
     this.GuildBanAdd = this.load(require('./GuildBanAdd.js'));
     this.GuildBanRemove = this.load(require('./GuildBanRemove.js'));
@@ -49,7 +46,6 @@ class ActionsManager {
     this.GuildStickerUpdate = this.load(require('./GuildStickerUpdate.js'));
     this.GuildStickersUpdate = this.load(require('./GuildStickersUpdate.js'));
     this.GuildUpdate = this.load(require('./GuildUpdate.js'));
-    this.InteractionCreate = this.load(require('./InteractionCreate.js'));
     this.InviteCreate = this.load(require('./InviteCreate.js'));
     this.InviteDelete = this.load(require('./InviteDelete.js'));
     this.MessageCreate = this.load(require('./MessageCreate.js'));

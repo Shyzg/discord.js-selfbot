@@ -4,7 +4,6 @@
 import {
   APIApplication,
   APIApplicationCommand,
-  APIApplicationCommandInteraction,
   APIAttachment,
   APIAuditLog,
   APIAuditLogEntry,
@@ -28,9 +27,6 @@ import {
   APIInvite,
   APIInviteStageInstance,
   APIMessage,
-  APIMessageButtonInteractionData,
-  APIMessageComponentInteraction,
-  APIMessageSelectMenuInteractionData,
   APIOverwrite,
   APIPartialChannel,
   APIPartialEmoji,
@@ -56,7 +52,6 @@ import {
   GatewayGuildBanAddDispatchData,
   GatewayGuildMemberAddDispatchData,
   GatewayGuildMemberUpdateDispatchData,
-  GatewayInteractionCreateDispatchData,
   GatewayInviteCreateDispatchData,
   GatewayInviteDeleteDispatchData,
   GatewayMessageReactionAddDispatchData,
@@ -135,12 +130,6 @@ export type RawGuildScheduledEventData = APIGuildScheduledEvent;
 export type RawGuildTemplateData = APITemplate;
 
 export type RawIntegrationData = APIGuildIntegration;
-
-export type RawInteractionData = GatewayInteractionCreateDispatchData;
-export type RawCommandInteractionData = APIApplicationCommandInteraction;
-export type RawMessageComponentInteractionData = APIMessageComponentInteraction;
-export type RawMessageButtonInteractionData = APIMessageButtonInteractionData;
-export type RawMessageSelectMenuInteractionData = APIMessageSelectMenuInteractionData;
 
 export type RawInviteData =
   | APIExtendedInvite
