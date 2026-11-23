@@ -5175,6 +5175,10 @@ export class GuildMemberManager extends CachedManager<Snowflake, GuildMember, Gu
   ): Promise<GuildMember>;
   public fetch(options?: FetchMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public fetchMe(options?: BaseFetchOptions): Promise<GuildMember>;
+  public fetchMemberList(
+    channel: GuildChannelResolvable,
+    options?: { limit?: number; time?: number },
+  ): Promise<Collection<Snowflake, GuildMember>>;
   public kick(user: UserResolvable, reason?: string): Promise<GuildMember | User | Snowflake>;
   public list(options?: GuildListMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public prune(options: GuildPruneMembersOptions & { dry?: false; count: false }): Promise<null>;
