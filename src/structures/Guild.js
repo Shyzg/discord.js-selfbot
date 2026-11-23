@@ -144,6 +144,9 @@ class Guild extends AnonymousGuild {
   }
 
   _patch(data) {
+    // User-account gateway payloads nest the guild's core fields (name, owner_id, afk_*, ...) under
+    // `properties`; flatten them so the field-by-field patch below sees them where REST delivers them.
+    if (data.properties) data = { ...data, ...data.properties };
     super._patch(data);
     this.id = data.id;
     if ('name' in data) this.name = data.name;
