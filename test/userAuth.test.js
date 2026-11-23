@@ -14,6 +14,18 @@ test('x-super-properties encodes the captured web-client build', () => {
   assert.equal(typeof decoded.client_build_number, 'number');
 });
 
+test('super-properties carry distinct, valid per-launch UUIDs', () => {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const ids = [
+    superProperties.client_launch_id,
+    superProperties.launch_signature,
+    superProperties.client_heartbeat_session_id,
+  ];
+  for (const id of ids) assert.match(id, uuid);
+  assert.equal(new Set(ids).size, 3); // distinct
+  assert.equal(superProperties.has_client_mods, false); // full fingerprint present
+});
+
 test('fixUserRequestHeaders strips the Bot scheme and spoofs the User-Agent', () => {
   const headers = { Authorization: 'Bot my.user.token', 'User-Agent': 'DiscordBot (discord.js)' };
   fixUserRequestHeaders(headers);
