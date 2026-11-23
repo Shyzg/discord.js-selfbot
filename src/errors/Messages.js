@@ -80,6 +80,7 @@ const Messages = {
 
   [DjsErrorCodes.MessageBulkDeleteType]: 'The messages must be an Array, Collection, or number.',
   [DjsErrorCodes.MessageContentType]: 'Message content must be a string.',
+  [DjsErrorCodes.MessageEmbedsUserAccount]: 'User accounts cannot send embeds; only bots and webhooks can.',
   [DjsErrorCodes.MessageNonceRequired]: 'Message nonce is required when enforceNonce is true.',
   [DjsErrorCodes.MessageNonceType]: 'Message nonce must be an integer or a string.',
 

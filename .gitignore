@@ -8,7 +8,7 @@ node_modules/
 !.env.example
 test/auth.js
 test/auth.json
-bitwarden_export_*.json
+bitwarden*.json
 
 # Captured traffic (HAR files hold your Discord token — never commit)
 *.har
