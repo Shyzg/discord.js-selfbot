@@ -12,9 +12,12 @@ module.exports = (client, { d: data }, shard) => {
     client.users.cache.set(client.user.id, client.user);
   }
 
-  for (const guild of data.guilds) {
+  for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;
-    client.guilds._add(guild);
+    const cached = client.guilds._add(guild);
+    // User READY moves members into `merged_members` (one array per guild, `user_id` instead of `user`).
+    const me = data.merged_members?.[index]?.find(member => member.user_id === data.user.id);
+    if (me) cached.members._add({ ...me, user: data.user });
   }
 
   // User accounts have no application in READY (it is a bot-only field).

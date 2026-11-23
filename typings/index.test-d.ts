@@ -1,5 +1,3 @@
-import type { ChildProcess } from 'node:child_process';
-import type { Worker } from 'node:worker_threads';
 import type { ContextMenuCommandBuilder, SlashCommandBuilder } from '@discordjs/builders';
 import { ReadonlyCollection } from '@discordjs/collection';
 import {
@@ -37,7 +35,6 @@ import {
   InteractionType,
   Locale,
   MessageFlags,
-  PermissionFlagsBits,
   TextInputStyle,
   WebhookType,
 } from 'discord-api-types/v10';
@@ -147,7 +144,6 @@ import {
   GuildScheduledEventRecurrenceRuleOptions,
   type GuildTextBasedChannel,
   GuildTextThreadManager,
-  IntentsBitField,
   Interaction,
   InteractionCallbackResponse,
   InteractionCollector,
@@ -206,11 +202,6 @@ import {
   SelectMenuComponent,
   SendableChannels,
   SeparatorComponentData,
-  Serialized,
-  Shard,
-  ShardClientUtil,
-  ShardEvents,
-  ShardingManager,
   SKU,
   Snowflake,
   StageChannel,
@@ -255,7 +246,6 @@ import {
 } from './index.js';
 
 // Test type transformation:
-declare const serialize: <Value>(value: Value) => Serialized<Value>;
 declare const notPropertyOf: <Value, Property extends PropertyKey>(
   value: Value,
   property: Property & Exclude<Property, keyof Value>,
@@ -1462,41 +1452,6 @@ expectType<string | null>(loggedOutClient.token);
 expectType<null>(loggedOutClient.uptime);
 expectType<null>(loggedOutClient.user);
 
-expectType<undefined>(serialize(undefined));
-expectType<null>(serialize(null));
-expectType<number[]>(serialize([1, 2, 3]));
-expectType<{}>(serialize(new Set([1, 2, 3])));
-expectType<{}>(
-  serialize(
-    new Map([
-      [1, '2'],
-      [2, '4'],
-    ]),
-  ),
-);
-expectType<string>(serialize(new PermissionsBitField(PermissionFlagsBits.AttachFiles)));
-expectType<number>(serialize(new IntentsBitField(GatewayIntentBits.Guilds)));
-expectAssignable<unknown>(
-  serialize(
-    new Collection([
-      [1, '2'],
-      [2, '4'],
-    ]),
-  ),
-);
-expectType<never>(serialize(Symbol('a')));
-expectType<never>(serialize(() => {}));
-expectType<never>(serialize(BigInt(42)));
-
-// Test type return of broadcastEval:
-declare const shardClientUtil: ShardClientUtil;
-declare const shardingManager: ShardingManager;
-
-expectType<Promise<number[]>>(shardingManager.broadcastEval(() => 1));
-expectType<Promise<number[]>>(shardClientUtil.broadcastEval(() => 1));
-expectType<Promise<number[]>>(shardingManager.broadcastEval(async () => 1));
-expectType<Promise<number[]>>(shardClientUtil.broadcastEval(async () => 1));
-
 declare const dmChannel: DMChannel;
 declare const threadChannel: ThreadChannel;
 declare const threadChannelFromForum: ThreadChannel<true>;
@@ -1565,7 +1520,6 @@ reactionCollector.on('dispose', (...args) => {
 // (K -> V and V -> K) exist:
 expectAssignable<'messageCreate'>(Events.MessageCreate);
 expectAssignable<'close'>(WebSocketShardEvents.Close);
-expectAssignable<'death'>(ShardEvents.Death);
 expectAssignable<1>(Status.Connecting);
 
 declare const applicationCommandData: ApplicationCommandData;
@@ -2399,12 +2353,6 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-declare const shard: Shard;
-
-shard.on('death', process => {
-  expectType<ChildProcess | Worker>(process);
-});
-
 declare const webSocketShard: WebSocketShard;
 
 webSocketShard.on('close', event => {
@@ -2433,8 +2381,6 @@ collector.on('end', (collection, reason) => {
     expectType<[Interaction, ...string[]]>(value);
   }
 })();
-
-expectType<Promise<number | null>>(shard.eval(client => client.readyTimestamp));
 
 // Test audit logs
 expectType<Promise<GuildAuditLogs<AuditLogEvent.MemberKick>>>(guild.fetchAuditLogs({ type: AuditLogEvent.MemberKick }));

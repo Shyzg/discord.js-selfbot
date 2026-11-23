@@ -43,3 +43,19 @@ test('fetchMemberList collects members from the gateway member list', async () =
   assert.ok(members.has('u1') && members.has('u2'));
   assert.equal(guild.members.cache.size, 2); // also populated the cache
 });
+
+test('fetchMemberList requires an explicit limit (op-14 is a window, not a bulk fetch)', () => {
+  const client = new Client();
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
+  assert.throws(() => guild.members.fetchMemberList('123456789012345678'), /limit option must be/);
+});
+
+test('fetchMemberList rejects when no member list arrives (the list always contains you)', async () => {
+  const client = new Client();
+  client.ws.shards.set(0, { send: () => {} });
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
+  guild.shardId = 0;
+  const fetching = guild.members.fetchMemberList('123456789012345678', { limit: 1, time: 10 });
+  // the request's own timer is unref'd, so keep the process alive until it fires
+  await Promise.all([assert.rejects(fetching, /didn't arrive/), new Promise(resolve => setTimeout(resolve, 50))]);
+});

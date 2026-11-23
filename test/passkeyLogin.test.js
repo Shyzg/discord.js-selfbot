@@ -43,6 +43,15 @@ test('buildAssertion signs an assertion that verifies against the public key', (
   assert.equal(verify('sha256', toVerify, publicKey, Buffer.from(assertion.response.signature, 'base64url')), true);
 });
 
+test('a Bitwarden GUID credentialId is sent as its 16 raw bytes', () => {
+  const { keyValue } = p256KeyValue();
+  // the GUID / raw-id pair from Bitwarden's own credential-id-utils.spec.ts
+  const passkey = { credentialId: '08d70b74-e9f5-4522-a425-e5dcd40107e7', privateKey: keyValue, userHandle: 'UH' };
+  const assertion = JSON.parse(buildAssertion(passkey, 'discord.com', 'CH'));
+  assert.equal(assertion.id, 'CNcLdOn1RSKkJeXc1AEH5w');
+  assert.equal(assertion.rawId, 'CNcLdOn1RSKkJeXc1AEH5w');
+});
+
 test('passkeyLogin runs conditional start -> finish and returns the token', async () => {
   const { keyValue } = p256KeyValue();
   const client = new Client();

@@ -16,13 +16,8 @@ const { version } = require('../../package.json');
 /**
  * Options for a client.
  * @typedef {Object} ClientOptions
- * @property {number|number[]|string} [shards] The shard's id to run, or an array of shard ids. If not specified,
- * the client will spawn {@link ClientOptions#shardCount} shards. If set to `auto`, it will fetch the
- * recommended amount of shards from Discord and spawn that amount
  * @property {number} [closeTimeout=5_000] The amount of time in milliseconds to wait for the close frame to be received
  * from the WebSocket. Don't have this too high/low. It's best to have it between 2_000-6_000 ms.
- * @property {number} [shardCount=1] The total amount of shards used by all processes of this bot
- * (e.g. recommended shard count, shard count of the ShardingManager)
  * @property {CacheFactory} [makeCache] Function to create a cache.
  * You can use your own function, or the {@link Options} class to customize the Collection used for the cache.
  * <warn>Overriding the cache used in `GuildManager`, `ChannelManager`, `GuildChannelManager`, `RoleManager`,
@@ -115,7 +110,6 @@ class Options extends null {
     return {
       closeTimeout: 5_000,
       waitGuildTimeout: 15_000,
-      shardCount: 1,
       makeCache: this.cacheWithLimits(this.DefaultMakeCacheSettings),
       partials: [],
       failIfNotExists: true,

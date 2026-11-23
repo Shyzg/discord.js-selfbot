@@ -3,10 +3,10 @@
 const { parse } = require('node:path');
 const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
-const { ChannelType, RouteBases, Routes } = require('discord-api-types/v10');
+const { ChannelType } = require('discord-api-types/v10');
 const Colors = require('./Colors');
 const PermissionsBitField = require('./PermissionsBitField');
-const { DiscordjsError, DiscordjsRangeError, DiscordjsTypeError, ErrorCodes } = require('../errors');
+const { DiscordjsRangeError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const isObject = d => typeof d === 'object' && d !== null;
 
 let deprecationEmittedForUserFetchFlags = false;
@@ -55,32 +55,6 @@ function flatten(obj, ...props) {
   }
 
   return out;
-}
-
-/**
- * @typedef {Object} FetchRecommendedShardCountOptions
- * @property {number} [guildsPerShard=1000] Number of guilds assigned per shard
- * @property {number} [multipleOf=1] The multiple the shard count should round up to. (16 for large bot sharding)
- */
-
-/**
- * Gets the recommended shard count from Discord.
- * @param {string} token Discord auth token
- * @param {FetchRecommendedShardCountOptions} [options] Options for fetching the recommended shard count
- * @returns {Promise<number>} The recommended number of shards
- */
-async function fetchRecommendedShardCount(token, { guildsPerShard = 1_000, multipleOf = 1 } = {}) {
-  if (!token) throw new DiscordjsError(ErrorCodes.TokenMissing);
-  const response = await fetch(RouteBases.api + Routes.gatewayBot(), {
-    method: 'GET',
-    headers: { Authorization: `Bot ${token.replace(/^Bot\s*/i, '')}` },
-  });
-  if (!response.ok) {
-    if (response.status === 401) throw new DiscordjsError(ErrorCodes.TokenInvalid);
-    throw response;
-  }
-  const { shards } = await response.json();
-  return Math.ceil((shards * (1_000 / guildsPerShard)) / multipleOf) * multipleOf;
 }
 
 /**
@@ -551,7 +525,6 @@ function emitDeprecationWarningForRemoveThreadMember(name) {
 
 module.exports = {
   flatten,
-  fetchRecommendedShardCount,
   parseEmoji,
   resolvePartialEmoji,
   makeError,

@@ -8,12 +8,11 @@ const BaseClient = require('./BaseClient');
 const ActionsManager = require('./actions/ActionsManager');
 const ClientVoiceManager = require('./voice/ClientVoiceManager');
 const WebSocketManager = require('./websocket/WebSocketManager');
-const { DiscordjsError, DiscordjsTypeError, DiscordjsRangeError, ErrorCodes } = require('../errors');
+const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const BaseGuildEmojiManager = require('../managers/BaseGuildEmojiManager');
 const ChannelManager = require('../managers/ChannelManager');
 const GuildManager = require('../managers/GuildManager');
 const UserManager = require('../managers/UserManager');
-const ShardClientUtil = require('../sharding/ShardClientUtil');
 const ClientPresence = require('../structures/ClientPresence');
 const GuildPreview = require('../structures/GuildPreview');
 const GuildTemplate = require('../structures/GuildTemplate');
@@ -27,7 +26,6 @@ const Widget = require('../structures/Widget');
 const { resolveInviteCode, resolveGuildTemplateCode } = require('../util/DataResolver');
 const Events = require('../util/Events');
 const IntentsBitField = require('../util/IntentsBitField');
-const Options = require('../util/Options');
 const PermissionsBitField = require('../util/PermissionsBitField');
 const Status = require('../util/Status');
 const Sweepers = require('../util/Sweepers');
@@ -44,39 +42,6 @@ class Client extends BaseClient {
    */
   constructor(options) {
     super(options);
-
-    const data = require('node:worker_threads').workerData ?? process.env;
-    const defaults = Options.createDefault();
-
-    if (this.options.shards === defaults.shards) {
-      if ('SHARDS' in data) {
-        this.options.shards = JSON.parse(data.SHARDS);
-      }
-    }
-
-    if (this.options.shardCount === defaults.shardCount) {
-      if ('SHARD_COUNT' in data) {
-        this.options.shardCount = Number(data.SHARD_COUNT);
-      } else if (Array.isArray(this.options.shards)) {
-        this.options.shardCount = this.options.shards.length;
-      }
-    }
-
-    const typeofShards = typeof this.options.shards;
-
-    if (typeofShards === 'undefined' && typeof this.options.shardCount === 'number') {
-      this.options.shards = Array.from({ length: this.options.shardCount }, (_, i) => i);
-    }
-
-    if (typeofShards === 'number') this.options.shards = [this.options.shards];
-
-    if (Array.isArray(this.options.shards)) {
-      this.options.shards = [
-        ...new Set(
-          this.options.shards.filter(item => !isNaN(item) && item >= 0 && item < Infinity && item === (item | 0)),
-        ),
-      ];
-    }
 
     this._validateOptions();
 
@@ -98,14 +63,6 @@ class Client extends BaseClient {
      * @type {ClientVoiceManager}
      */
     this.voice = new ClientVoiceManager(this);
-
-    /**
-     * Shard helpers for the client (only if the process was spawned from a {@link ShardingManager})
-     * @type {?ShardClientUtil}
-     */
-    this.shard = process.env.SHARDING_MANAGER
-      ? ShardClientUtil.singleton(this, process.env.SHARDING_MANAGER_MODE)
-      : null;
 
     /**
      * The user manager of this client
@@ -289,8 +246,12 @@ class Client extends BaseClient {
     if (!data.mfa) return data.token;
     // A stored TOTP secret resolves the common case automatically, without an mfa handler.
     if (totpSecret && data.totp) {
-      const { generate } = require('otplib');
-      return this._submitMfa('totp', await generate({ secret: totpSecret }), data);
+      const { generate, createGuardrails } = require('otplib');
+      // Discord 2FA secrets are 16 base32 chars (10 bytes), below otplib's default 16-byte (128-bit) guardrail.
+      // Keys are often shown in groups of four ("ABCD EFGH ..."); base32 decoding rejects the spaces.
+      const secret = totpSecret.replace(/\s/g, '');
+      const code = await generate({ secret, guardrails: createGuardrails({ MIN_SECRET_BYTES: 10 }) });
+      return this._submitMfa('totp', code, data);
     }
     if (!mfa) {
       const available = ['totp', 'sms', 'backup', 'webauthn'].filter(name => data[name]);
@@ -352,7 +313,7 @@ class Client extends BaseClient {
    * like {@link Client#login}. The library signs the challenge itself, so the passkey's private key must be
    * available (a synced/exported software passkey, e.g. a password manager export).
    * @param {Object} passkey The passkey credential
-   * @param {string} passkey.credentialId The credential id (a `b64.`-prefixed or plain base64url id)
+   * @param {string} passkey.credentialId The credential id (a Bitwarden GUID, a `b64.`-prefixed or a base64url id)
    * @param {string|KeyObject} passkey.privateKey The P-256 private key: a PKCS8 DER base64url string (such as a
    * Bitwarden fido2 `keyValue`) or a Node `KeyObject`
    * @param {string} passkey.userHandle The base64url user handle
@@ -661,17 +622,6 @@ class Client extends BaseClient {
   }
 
   /**
-   * Calls {@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/eval} on a script
-   * with the client as `this`.
-   * @param {string} script Script to eval
-   * @returns {*}
-   * @private
-   */
-  _eval(script) {
-    return eval(script);
-  }
-
-  /**
    * Validates the client options.
    * @param {ClientOptions} [options=this.options] Options to validate
    * @private
@@ -680,13 +630,6 @@ class Client extends BaseClient {
     // User accounts have no intents; the gateway IDENTIFY omits the field. Keep an empty, frozen bitfield
     // (when none is given) so `options.intents.has(...)` still works everywhere internally.
     options.intents = new IntentsBitField(options.intents ?? 0).freeze();
-    if (typeof options.shardCount !== 'number' || isNaN(options.shardCount) || options.shardCount < 1) {
-      throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'shardCount', 'a number greater than or equal to 1');
-    }
-    if (options.shards && !(options.shards === 'auto' || Array.isArray(options.shards))) {
-      throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'shards', "'auto', a number or array of numbers");
-    }
-    if (options.shards && !options.shards.length) throw new DiscordjsRangeError(ErrorCodes.ClientInvalidProvidedShards);
     if (typeof options.makeCache !== 'function') {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'makeCache', 'a function');
     }

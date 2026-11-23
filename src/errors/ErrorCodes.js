@@ -4,7 +4,6 @@
  * @typedef {Object} DiscordjsErrorCodes
 
  * @property {'ClientInvalidOption'} ClientInvalidOption
- * @property {'ClientInvalidProvidedShards'} ClientInvalidProvidedShards
  * @property {'ClientMissingIntents'} ClientMissingIntents
  * @property {'ClientNotReady'} ClientNotReady
  * @property {'CaptchaRequired'} CaptchaRequired
@@ -26,26 +25,10 @@
 
  * @property {'BitFieldInvalid'} BitFieldInvalid
 
- * @property {'ShardingInvalid'} ShardingInvalid
- * <warn>This property is deprecated.</warn>
- * @property {'ShardingRequired'} ShardingRequired
- * <warn>This property is deprecated.</warn>
  * @property {'InvalidIntents'} InvalidIntents
  * <warn>This property is deprecated.</warn>
  * @property {'DisallowedIntents'} DisallowedIntents
  * <warn>This property is deprecated.</warn>
- * @property {'ShardingNoShards'} ShardingNoShards
- * @property {'ShardingInProcess'} ShardingInProcess
- * @property {'ShardingInvalidEvalBroadcast'} ShardingInvalidEvalBroadcast
- * @property {'ShardingShardNotFound'} ShardingShardNotFound
- * @property {'ShardingAlreadySpawned'} ShardingAlreadySpawned
- * @property {'ShardingProcessExists'} ShardingProcessExists
- * @property {'ShardingWorkerExists'} ShardingWorkerExists
- * @property {'ShardingReadyTimeout'} ShardingReadyTimeout
- * @property {'ShardingReadyDisconnected'} ShardingReadyDisconnected
- * @property {'ShardingReadyDied'} ShardingReadyDied
- * @property {'ShardingNoChildExists'} ShardingNoChildExists
- * @property {'ShardingShardMiscalculation'} ShardingShardMiscalculation
 
  * @property {'ColorRange'} ColorRange
  * @property {'ColorConvert'} ColorConvert
@@ -193,7 +176,6 @@
 
 const keys = [
   'ClientInvalidOption',
-  'ClientInvalidProvidedShards',
   'ClientMissingIntents',
   'ClientNotReady',
   'CaptchaRequired',
@@ -211,22 +193,8 @@ const keys = [
 
   'BitFieldInvalid',
 
-  'ShardingInvalid',
-  'ShardingRequired',
   'InvalidIntents',
   'DisallowedIntents',
-  'ShardingNoShards',
-  'ShardingInProcess',
-  'ShardingInvalidEvalBroadcast',
-  'ShardingShardNotFound',
-  'ShardingAlreadySpawned',
-  'ShardingProcessExists',
-  'ShardingWorkerExists',
-  'ShardingReadyTimeout',
-  'ShardingReadyDisconnected',
-  'ShardingReadyDied',
-  'ShardingNoChildExists',
-  'ShardingShardMiscalculation',
 
   'ColorRange',
   'ColorConvert',

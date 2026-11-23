@@ -70,9 +70,12 @@ function fixUserRequestHeaders(headers) {
   return headers;
 }
 
-// The web client's gateway IDENTIFY `capabilities` bitfield, which selects the modern (user) event format.
+// The web client's gateway IDENTIFY `capabilities` (1767421), which selects the modern (user) event format, minus
+// the bits whose events this library has no handler for: AUTH_TOKEN_REFRESH (1 << 8, READY `auth_token`),
+// DEBOUNCE_MESSAGE_REACTIONS (1 << 13, MESSAGE_REACTION_ADD_MANY) and PASSIVE_GUILD_UPDATE_V2 (1 << 14,
+// PASSIVE_UPDATE_V2 instead of VOICE_STATE_UPDATE). Keep them cleared when refreshing the web value.
 // shortcut: point-in-time snapshot; refresh alongside client_build_number if the gateway starts rejecting it.
-const CAPABILITIES = 1767421;
+const CAPABILITIES = 1767421 & ~((1 << 8) | (1 << 13) | (1 << 14));
 
 /**
  * Rewrites a gateway IDENTIFY `d` to match the web client for user accounts: adds `capabilities` and

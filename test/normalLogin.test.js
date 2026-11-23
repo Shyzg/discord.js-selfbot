@@ -113,10 +113,20 @@ test('a totpSecret solves TOTP MFA automatically (no mfa handler)', async () => 
     if (route === '/auth/mfa/totp') return { token: 'MFATOKEN' };
     throw new Error(`unexpected route ${route}`);
   });
-  // 32 base32 chars = 20 bytes, clearing otplib's >=16-byte guardrail
-  const token = await client.normalLogin('user@example.com', 'pw', { totpSecret: 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ' });
+  // 16 base32 chars = 10 bytes: a real Discord-length 2FA secret, below otplib's default 16-byte guardrail
+  const token = await client.normalLogin('user@example.com', 'pw', { totpSecret: 'JBSWY3DPEHPK3PXP' });
   assert.equal(token, 'MFATOKEN');
   const mfaCall = posts.find(p => p[0] === '/auth/mfa/totp')[1];
   assert.match(mfaCall.body.code, /^\d{6}$/); // a real generated TOTP code
   assert.equal(mfaCall.body.ticket, 'TK');
+});
+
+test('a totpSecret pasted in groups of four (with spaces) still works', async () => {
+  const client = stubClient(async route => {
+    if (route === '/auth/login') return { mfa: true, ticket: 'TK', totp: true };
+    if (route === '/auth/mfa/totp') return { token: 'MFATOKEN' };
+    throw new Error(`unexpected route ${route}`);
+  });
+  const token = await client.normalLogin('user@example.com', 'pw', { totpSecret: 'JBSW Y3DP EHPK 3PXP' });
+  assert.equal(token, 'MFATOKEN');
 });
