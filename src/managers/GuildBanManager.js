@@ -120,9 +120,10 @@ class GuildBanManager extends CachedManager {
     return this._add(data, cache);
   }
 
-  async _fetchMany({ cache, ...apiOptions } = {}) {
+  async _fetchMany({ cache, limit = 1000, ...apiOptions } = {}) {
+    // User accounts require an explicit `limit` on GET /guilds/:id/bans (1000 is the API max).
     const data = await this.client.rest.get(Routes.guildBans(this.guild.id), {
-      query: makeURLSearchParams(apiOptions),
+      query: makeURLSearchParams({ limit, ...apiOptions }),
     });
 
     return data.reduce((col, ban) => col.set(ban.user.id, this._add(ban, cache)), new Collection());
