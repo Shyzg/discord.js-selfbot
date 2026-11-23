@@ -218,6 +218,66 @@ class GuildMemberManager extends CachedManager {
     return this._fetchMany({ ...options, users: resolvedUsers });
   }
 
+  /**
+   * Fetches members through the gateway member list (op 14) — the mechanism user accounts use instead of the
+   * bot-only op 8 `REQUEST_GUILD_MEMBERS`, which Discord ignores for users on sizable guilds. Members are read
+   * from a channel's displayed list, so pass a channel whose list reflects the whole guild (e.g. one `@everyone`
+   * can view). Best-effort: it streams ranges and resolves once updates settle (or `limit` is reached).
+   * @param {GuildChannelResolvable} channel A channel whose member list to read
+   * @param {Object} [options] Options
+   * @param {number} [options.limit] Stop once this many members are collected (default: the whole list)
+   * @param {number} [options.time=5000] Idle time (ms) after the last update before resolving
+   * @returns {Promise<Collection<Snowflake, GuildMember>>}
+   */
+  fetchMemberList(channel, { limit, time = 5_000 } = {}) {
+    const channelId = this.guild.channels.resolveId(channel);
+    if (!channelId) throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'channel', 'a channel in this guild');
+    const target = limit ?? this.guild.memberCount ?? 100;
+    return new Promise(resolve => {
+      const collected = new Collection();
+      const cleanup = () => {
+        clearTimeout(timer);
+        this.client.removeListener(Events.Raw, handler);
+        this.client.decrementMaxListeners();
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve(collected);
+      }, time).unref();
+      const handler = packet => {
+        if (packet.t !== 'GUILD_MEMBER_LIST_UPDATE' || packet.d.guild_id !== this.guild.id) return;
+        timer.refresh();
+        for (const op of packet.d.ops) {
+          const items = op.op === 'SYNC' ? op.items : op.item ? [op.item] : [];
+          for (const item of items) {
+            if (item?.member) collected.set(item.member.user.id, this._add(item.member));
+          }
+        }
+        if (limit && collected.size >= limit) {
+          cleanup();
+          resolve(collected);
+        }
+      };
+      this.client.incrementMaxListeners();
+      this.client.on(Events.Raw, handler);
+      // Request member-list ranges (100 per range, 3 ranges per op-14 frame) covering the target.
+      const ranges = [];
+      for (let start = 0; start < target + 100; start += 100) ranges.push([start, start + 99]);
+      for (let i = 0; i < ranges.length; i += 3) {
+        this.guild.shard.send({
+          op: 14,
+          d: {
+            guild_id: this.guild.id,
+            typing: true,
+            threads: false,
+            activities: true,
+            channels: { [channelId]: ranges.slice(i, i + 3) },
+          },
+        });
+      }
+    });
+  }
+
   async _fetchSingle({ user, cache, force = false }) {
     if (!force) {
       const existing = this.cache.get(user);
