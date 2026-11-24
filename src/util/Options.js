@@ -34,7 +34,7 @@ const { toSnakeCase } = require('./Transformers');
  * @property {WebsocketOptions} [ws] Options for the WebSocket
  * @property {RESTOptions} [rest] Options for the REST manager
  * @property {Function} [jsonTransformer] A function used to transform outgoing json data
- * @property {boolean} [enforceNonce=false] The default value for {@link MessageCreateOptions#enforceNonce}
+ * @property {boolean} [enforceNonce=true] The default value for {@link MessageCreateOptions#enforceNonce}
  */
 
 /**
@@ -101,7 +101,7 @@ class Options extends null {
       makeCache: this.cacheWithLimits(this.DefaultMakeCacheSettings),
       partials: [],
       failIfNotExists: true,
-      enforceNonce: false,
+      enforceNonce: true,
       presence: {},
       sweepers: this.DefaultSweeperSettings,
       ws: {
