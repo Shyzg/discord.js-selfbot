@@ -15,5 +15,9 @@ module.exports = (client, { d: data }) => {
       guild.voiceStates.cache.clear();
       for (const state of voiceStates) guild.voiceStates._add(state);
     }
+    for (const presence of data.merged_presences?.guilds?.[index] ?? []) {
+      const userId = presence.user_id ?? presence.user?.id;
+      if (userId) guild.presences._add({ ...presence, user: { id: userId }, guild });
+    }
   }
 };

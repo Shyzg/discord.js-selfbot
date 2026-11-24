@@ -32,6 +32,8 @@ class GuildMemberManager extends CachedManager {
      * @type {Guild}
      */
     this.guild = guild;
+
+    this._memberListQueue = null;
   }
 
   /**
@@ -153,11 +155,12 @@ class GuildMemberManager extends CachedManager {
   }
 
   /**
-   * Fetches members through the gateway member list (op 14) — the mechanism user accounts use instead of the
-   * bot-only op 8 `REQUEST_GUILD_MEMBERS`, which Discord ignores for users on sizable guilds. Members are read
-   * from a channel's displayed list, so pass a channel whose list reflects the whole guild (e.g. one `@everyone`
-   * can view). Best-effort: it streams ranges and resolves once updates settle (or `limit` is reached), and rejects
-   * with `GuildMembersTimeout` if no member arrives within `time`.
+   * Fetches members through the gateway member list (op 37, Guild Subscriptions Bulk) — the mechanism user accounts
+   * use instead of the bot-only op 8 `REQUEST_GUILD_MEMBERS`, which Discord ignores for users on sizable guilds.
+   * Members are read from a channel's displayed list, so pass a channel whose list reflects the whole guild (e.g. one
+   * `@everyone` can view). Best-effort: it streams ranges and resolves once updates settle (or `limit` is reached),
+   * and rejects with `GuildMembersTimeout` if no member arrives within `time`. Overlapping calls on the same guild
+   * are serialized so subscriptions do not overwrite one another.
    * @param {GuildChannelResolvable} channel A channel whose member list to read
    * @param {Object} options Options
    * @param {number} options.limit Stop once this many members are collected
@@ -167,80 +170,112 @@ class GuildMemberManager extends CachedManager {
   fetchMemberList(channel, { limit, time = 5_000 } = {}) {
     const channelId = this.guild.channels.resolveId(channel);
     if (!channelId) throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'channel', 'a channel in this guild');
-    // op-14 is a windowed subscription, not a bulk fetch: require a finite positive limit so calls can't loop forever
+    // op-37 is a windowed subscription, not a bulk fetch: require a finite positive limit so calls can't loop forever
     // or size themselves to a whole guild (GuildMemberManager#fetch needs Manage Roles, Kick Members or Ban Members).
     if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 1) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'limit', 'a positive finite number');
     }
-    return new Promise((resolve, reject) => {
-      const collected = new Collection();
-      const ranges = [];
-      for (let start = 0; start < limit; start += 100) ranges.push([start, start + 99]);
-      let nextBatch = 0;
-      const cleanup = () => {
-        clearTimeout(timer);
-        this.client.removeListener(Events.Raw, handler);
-        this.client.decrementMaxListeners();
-      };
-      const sendNext = () => {
-        // Each op-14 frame replaces the channel's subscribed ranges (max 3 per frame, with [0, 99] anchored),
-        // so send one window at a time and advance only after the previous SYNC arrives.
-        const window = nextBatch === 0 ? ranges.slice(0, 3) : [ranges[0], ...ranges.slice(nextBatch, nextBatch + 2)];
-        nextBatch += nextBatch === 0 ? 3 : 2;
-        this.guild.shard.send({
-          op: 14,
-          d: {
-            guild_id: this.guild.id,
-            typing: true,
-            threads: false,
-            activities: true,
-            channels: { [channelId]: window },
-          },
-        });
-      };
-      const timer = setTimeout(() => {
-        cleanup();
-        // The list always contains you, so an empty result means Discord ignored the request.
-        if (collected.size) resolve(collected);
-        else reject(new DiscordjsError(ErrorCodes.GuildMembersTimeout));
-      }, time).unref();
-      const handler = packet => {
-        if (packet.t !== 'GUILD_MEMBER_LIST_UPDATE' || packet.d.guild_id !== this.guild.id) return;
-        timer.refresh();
-        const before = collected.size;
-        let sawSync = false;
-        for (const op of packet.d.ops ?? []) {
-          if (op.op === 'SYNC') sawSync = true;
-          const items = op.op === 'SYNC' ? (op.items ?? []) : op.item ? [op.item] : [];
-          for (const item of items) {
-            if (item?.member) {
-              collected.set(item.member.user.id, this._add(item.member));
-              if (collected.size >= limit) {
-                cleanup();
-                resolve(collected);
-                return;
+    let current;
+    let settled = false;
+    const run = () =>
+      new Promise((resolve, reject) => {
+        const collected = new Collection();
+        let nextStart = 0;
+        let subscribed = false;
+        const sendSubscription = channels => {
+          this.guild.shard.send({
+            op: 37,
+            d: {
+              subscriptions: {
+                [this.guild.id]: {
+                  typing: true,
+                  threads: false,
+                  activities: true,
+                  channels,
+                },
+              },
+            },
+          });
+        };
+        const cleanup = () => {
+          settled = true;
+          clearTimeout(timer);
+          this.client.removeListener(Events.Raw, handler);
+          this.client.decrementMaxListeners();
+          if (subscribed) {
+            subscribed = false;
+            // Clear the channel range subscription so Discord stops streaming updates and future calls get a fresh SYNC.
+            try {
+              sendSubscription({});
+            } catch {}
+          }
+          if (this._memberListQueue === current) this._memberListQueue = null;
+        };
+        const sendNext = () => {
+          // Each op-37 frame replaces the guild's subscribed ranges, with [0, 99] anchored. Step one 100-slot range
+          // at a time after each productive SYNC so group headers consuming slots don't cut the fetch short.
+          const window =
+            nextStart === 0
+              ? [[0, 99]]
+              : [
+                  [0, 99],
+                  [nextStart, nextStart + 99],
+                ];
+          nextStart += 100;
+          sendSubscription({ [channelId]: window });
+          subscribed = true;
+        };
+        const timer = setTimeout(() => {
+          cleanup();
+          // The list always contains you, so an empty result means Discord ignored the request.
+          if (collected.size) resolve(collected);
+          else reject(new DiscordjsError(ErrorCodes.GuildMembersTimeout));
+        }, time).unref();
+        const handler = packet => {
+          if (packet.t !== 'GUILD_MEMBER_LIST_UPDATE' || packet.d.guild_id !== this.guild.id) return;
+          timer.refresh();
+          const before = collected.size;
+          let sawSync = false;
+          for (const op of packet.d.ops ?? []) {
+            if (op.op === 'SYNC') sawSync = true;
+            const items = op.op === 'SYNC' ? (op.items ?? []) : op.item ? [op.item] : [];
+            for (const item of items) {
+              if (item?.member) {
+                collected.set(item.member.user.id, this._add(item.member));
+                if (collected.size >= limit) {
+                  cleanup();
+                  resolve(collected);
+                  return;
+                }
               }
             }
           }
-        }
-        if (sawSync && collected.size > before && nextBatch < ranges.length) {
-          try {
-            sendNext();
-          } catch (error) {
-            cleanup();
-            reject(error);
+          if (sawSync && collected.size > before) {
+            try {
+              sendNext();
+            } catch (error) {
+              cleanup();
+              reject(error);
+            }
           }
+        };
+        this.client.incrementMaxListeners();
+        this.client.on(Events.Raw, handler);
+        try {
+          sendNext();
+        } catch (error) {
+          cleanup();
+          reject(error);
         }
-      };
-      this.client.incrementMaxListeners();
-      this.client.on(Events.Raw, handler);
-      try {
-        sendNext();
-      } catch (error) {
-        cleanup();
-        reject(error);
-      }
-    });
+      });
+
+    const previous = this._memberListQueue;
+    current = previous ? previous.then(run, run) : run();
+    if (!settled) {
+      current.catch(() => {});
+      this._memberListQueue = current;
+    }
+    return current;
   }
 
   async _fetchSingle({ user, cache, force = false }) {

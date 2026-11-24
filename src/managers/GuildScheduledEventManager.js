@@ -294,6 +294,7 @@ class GuildScheduledEventManager extends CachedManager {
       with_member: options.withMember,
       before: options.before,
       after: options.after,
+      upgrade_response_type: true,
     });
 
     const data = await this.client.rest.get(Routes.guildScheduledEventUsers(this.guild.id, guildScheduledEventId), {

@@ -237,7 +237,6 @@ TextBasedChannel.applyToClass(ThreadOnlyChannel, true, [
   'send',
   'lastMessage',
   'lastPinAt',
-  'bulkDelete',
   'sendTyping',
   'createMessageCollector',
   'awaitMessages',

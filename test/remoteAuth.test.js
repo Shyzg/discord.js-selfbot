@@ -46,8 +46,11 @@ test('handshake: init, nonce proof, QR url, and token decryption', async () => {
   assert.equal(proof.nonce, nonce.toString('base64url'));
 
   let qrUrl;
-  await remote._handle({ op: 'pending_remote_init', fingerprint: 'FP123' }, { ...ctx, onQRCode: url => (qrUrl = url) });
-  assert.equal(qrUrl, 'https://discord.com/ra/FP123');
+  await remote._handle(
+    { op: 'pending_remote_init', fingerprint: remote.fingerprint },
+    { ...ctx, onQRCode: url => (qrUrl = url) },
+  );
+  assert.equal(qrUrl, `https://discord.com/ra/${remote.fingerprint}`);
 
   client.rest = {
     post: async (route, opts) => {
@@ -102,12 +105,15 @@ test('pending_remote_init renders a QR to the terminal when no onQRCode handler 
   const original = console.log;
   console.log = (...args) => logs.push(args.join(' '));
   try {
-    await remote._handle({ op: 'pending_remote_init', fingerprint: 'FP' }, { resolve: () => {}, fail: () => {} });
+    await remote._handle(
+      { op: 'pending_remote_init', fingerprint: remote.fingerprint },
+      { resolve: () => {}, fail: () => {} },
+    );
   } finally {
     console.log = original;
   }
   assert.equal(logs.length, 1);
-  assert.match(logs[0], /discord\.com\/ra\/FP/); // the url is printed next to the rendered QR
+  assert.ok(logs[0].includes(`discord.com/ra/${remote.fingerprint}`)); // the url is printed next to the rendered QR
 });
 
 test('the socket closing right after pending_login does not fail the login', async t => {
@@ -192,7 +198,69 @@ test('an async onQRCode handler rejection fails run() cleanly', async t => {
     },
   });
   sockets[0].dispatchEvent(
-    new MessageEvent('message', { data: JSON.stringify({ op: 'pending_remote_init', fingerprint: 'FP' }) }),
+    new MessageEvent('message', {
+      data: JSON.stringify({ op: 'pending_remote_init', fingerprint: remote.fingerprint }),
+    }),
   );
   await assert.rejects(login, /qr ui broke/);
+});
+
+test('pending_remote_init rejects a mismatched public-key fingerprint', async () => {
+  const remote = new RemoteAuth(userClient());
+  remote.ws = { send: () => {}, close: () => {} };
+  let failed;
+  let called = false;
+  await remote._handle(
+    { op: 'pending_remote_init', fingerprint: 'WRONG_FINGERPRINT' },
+    {
+      onQRCode: () => {
+        called = true;
+      },
+      resolve: () => {},
+      fail: reason => {
+        failed = reason;
+      },
+    },
+  );
+  assert.equal(called, false);
+  assert.match(failed, /fingerprint mismatch/i);
+});
+
+test('pending_ticket normalizes default-avatar sentinel "0" to null', async () => {
+  const remote = new RemoteAuth(userClient());
+  remote.ws = { send: () => {}, close: () => {} };
+  let user;
+  await remote._handle(
+    {
+      op: 'pending_ticket',
+      encrypted_user_payload: serverEncrypt(remote.encodedPublicKey, '123456789:0:0:defaultuser'),
+    },
+    { onUserData: value => (user = value), resolve: () => {}, fail: () => {} },
+  );
+  assert.equal(user.avatar, null);
+  assert.equal(user.username, 'defaultuser');
+});
+
+test('hello enforces heartbeat_ack and timeout_ms', async () => {
+  const remote = new RemoteAuth(userClient());
+  remote.ws = { send: () => {}, close: () => {} };
+  const failures = [];
+  await remote._handle(
+    { op: 'hello', heartbeat_interval: 15, timeout_ms: 5000 },
+    { resolve: () => {}, fail: reason => failures.push(reason) },
+  );
+  await setTimeout(45);
+  remote.destroy();
+  assert.ok(failures.some(reason => /heartbeat/i.test(reason)));
+
+  const timed = new RemoteAuth(userClient());
+  timed.ws = { send: () => {}, close: () => {} };
+  const timeouts = [];
+  await timed._handle(
+    { op: 'hello', heartbeat_interval: 1000, timeout_ms: 20 },
+    { resolve: () => {}, fail: reason => timeouts.push(reason) },
+  );
+  await setTimeout(40);
+  timed.destroy();
+  assert.ok(timeouts.some(reason => /timed out/i.test(reason)));
 });

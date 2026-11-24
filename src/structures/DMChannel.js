@@ -58,7 +58,7 @@ class DMChannel extends BaseChannel {
        * The timestamp when the last pinned message was pinned, if there was one
        * @type {?number}
        */
-      this.lastPinTimestamp = Date.parse(data.last_pin_timestamp);
+      this.lastPinTimestamp = data.last_pin_timestamp ? Date.parse(data.last_pin_timestamp) : null;
     } else {
       this.lastPinTimestamp ??= null;
     }
@@ -122,19 +122,12 @@ class DMChannel extends BaseChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  // Doesn't work on DM channels; bulkDelete() {}
   // Doesn't work on DM channels; fetchWebhooks() {}
   // Doesn't work on DM channels; createWebhook() {}
   // Doesn't work on DM channels; setRateLimitPerUser() {}
   // Doesn't work on DM channels; setNSFW() {}
 }
 
-TextBasedChannel.applyToClass(DMChannel, true, [
-  'bulkDelete',
-  'fetchWebhooks',
-  'createWebhook',
-  'setRateLimitPerUser',
-  'setNSFW',
-]);
+TextBasedChannel.applyToClass(DMChannel, true, ['fetchWebhooks', 'createWebhook', 'setRateLimitPerUser', 'setNSFW']);
 
 module.exports = DMChannel;

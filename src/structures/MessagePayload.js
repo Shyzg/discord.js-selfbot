@@ -231,9 +231,12 @@ class MessagePayload {
           };
     }
 
-    // User accounts cannot send embeds (bot-only); fail with a clear error rather than Discord's cryptic 50006.
-    if (!this.isWebhook && this.options.embeds?.length) {
+    // User accounts cannot send embeds or components (bot-only); fail clearly instead of Discord's 50006/50035.
+    if (!isWebhook && this.options.embeds?.length) {
       throw new DiscordjsError(ErrorCodes.MessageEmbedsUserAccount);
+    }
+    if (!isWebhook && this.options.components?.length) {
+      throw new DiscordjsError(ErrorCodes.MessageComponentsUserAccount);
     }
 
     this.body = {

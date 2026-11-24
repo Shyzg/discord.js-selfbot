@@ -175,8 +175,11 @@ class Client extends BaseClient {
     this.rest.setToken(token);
     this.emit(Events.Debug, `Provided token: ${this._censoredToken}`);
 
-    if (this.options.presence) {
+    if (Object.keys(this.options.presence).length) {
       this.options.ws.presence = this.presence._parse(this.options.presence);
+    } else {
+      // Match Discord's web client default IDENTIFY presence so connecting doesn't force the account online.
+      this.options.ws.presence ??= { activities: [], status: 'unknown', since: 0, afk: false };
     }
 
     this.emit(Events.Debug, 'Preparing to connect to the gateway...');

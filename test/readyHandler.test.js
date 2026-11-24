@@ -93,3 +93,30 @@ test('READY_SUPPLEMENTAL fills voice states and their members, so a voice channe
   assert.deepEqual([...guild.channels.cache.get('40').members.keys()], ['5']);
   assert.equal(guild.members.cache.get('5').user.username, 'talker');
 });
+
+test('READY_SUPPLEMENTAL populates guild presences from merged_presences.guilds', () => {
+  const client = new Client();
+  const ready = {
+    user: self,
+    guilds: [{ id: '10', properties: { name: 'G' } }],
+    merged_members: [[{ user_id: '1', roles: [] }]],
+    users: [{ id: '5', username: 'onlineuser', discriminator: '0', global_name: null, avatar: null }],
+  };
+  readyHandler(client, { d: ready }, { id: 0, checkReady: () => {} });
+  readySupplementalHandler(client, {
+    d: {
+      guilds: [{ id: '10', voice_states: [] }],
+      merged_members: [[{ user_id: '5', roles: [] }]],
+      merged_presences: {
+        friends: [],
+        guilds: [[{ user_id: '5', status: 'dnd', activities: [], client_status: { desktop: 'dnd' } }]],
+      },
+    },
+  });
+
+  const guild = client.guilds.cache.get('10');
+  const presence = guild.presences.cache.get('5');
+  assert.equal(presence?.status, 'dnd');
+  assert.equal(presence?.guild, guild);
+  assert.deepEqual(presence?.clientStatus, { desktop: 'dnd' });
+});

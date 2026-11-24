@@ -184,7 +184,6 @@ class BaseGuildTextChannel extends GuildChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  bulkDelete() {}
   fetchWebhooks() {}
   createWebhook() {}
   setRateLimitPerUser() {}

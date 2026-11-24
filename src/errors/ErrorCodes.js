@@ -28,9 +28,10 @@
 
  * @property {'ReqResourceType'} ReqResourceType
 
- * @property {'MessageBulkDeleteType'} MessageBulkDeleteType
  * @property {'MessageContentType'} MessageContentType
+ * @property {'MessageComponentsUserAccount'} MessageComponentsUserAccount
  * @property {'MessageEmbedsUserAccount'} MessageEmbedsUserAccount
+ * @property {'MessageNotFound'} MessageNotFound
  * @property {'MessageNonceRequired'} MessageNonceRequired
  * @property {'MessageNonceType'} MessageNonceType
 
@@ -118,9 +119,10 @@ const keys = [
 
   'ReqResourceType',
 
-  'MessageBulkDeleteType',
   'MessageContentType',
+  'MessageComponentsUserAccount',
   'MessageEmbedsUserAccount',
+  'MessageNotFound',
   'MessageNonceRequired',
   'MessageNonceType',
 
