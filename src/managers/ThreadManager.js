@@ -71,12 +71,11 @@ class ThreadManager extends CachedManager {
 
   /**
    * Obtains a thread from Discord, or the channel cache if it's already available.
-   * @param {ThreadChannelResolvable|FetchThreadsOptions} [options] The options to fetch threads. If it is a
-   * ThreadChannelResolvable then the specified thread will be fetched. Fetches all active threads if `undefined`
+   * @param {ThreadChannelResolvable|FetchThreadsOptions} options The options to fetch threads. If it is a
+   * ThreadChannelResolvable then the specified thread will be fetched; pass `{ archived }` to fetch archived threads.
    * @param {BaseFetchOptions} [cacheOptions] Additional options for this fetch. <warn>The `force` field gets ignored
    * if `options` is not a {@link ThreadChannelResolvable}</warn>
-   * @returns {Promise<?(ThreadChannel|FetchedThreads|FetchedThreadsMore)>}
-   * {@link FetchedThreads} if active & {@link FetchedThreadsMore} if archived.
+   * @returns {Promise<?(ThreadChannel|FetchedThreadsMore)>}
    * @example
    * // Fetch a thread by its id
    * channel.threads.fetch('831955138126104859')
@@ -84,13 +83,12 @@ class ThreadManager extends CachedManager {
    *   .catch(console.error);
    */
   fetch(options, { cache, force } = {}) {
-    if (!options) return this.fetchActive(cache);
     const channel = this.client.channels.resolveId(options);
     if (channel) return this.client.channels.fetch(channel, { cache, force });
-    if (options.archived) {
+    if (options?.archived) {
       return this.fetchArchived(options.archived, cache);
     }
-    return this.fetchActive(cache);
+    throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'ThreadChannelResolvable or FetchThreadsOptions');
   }
 
   /**
@@ -157,16 +155,6 @@ class ThreadManager extends CachedManager {
 
     const raw = await this.client.rest.get(path, { query });
     return this.constructor._mapThreads(raw, this.client, { parent: this.channel, cache });
-  }
-
-  /**
-   * Obtains all active threads in the channel.
-   * @param {boolean} [cache=true] Whether to cache the fetched data
-   * @returns {Promise<FetchedThreads>}
-   */
-  async fetchActive(cache = true) {
-    const data = await this.channel.guild.channels.rawFetchGuildActiveThreads();
-    return this.constructor._mapThreads(data, this.client, { parent: this.channel, cache });
   }
 
   static _mapThreads(rawThreads, client, { parent, guild, cache }) {

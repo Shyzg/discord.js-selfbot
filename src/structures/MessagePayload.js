@@ -120,11 +120,12 @@ class MessagePayload {
     }
 
     let enforce_nonce = Boolean(this.options.enforceNonce);
+    const isEdit = (this.isMessage && !this.options.reply) || this.isMessageManager;
 
-    // If `nonce` isn't provided, generate one & set `enforceNonce`
-    // Unless `enforceNonce` is explicitly set to `false`(not just falsy)
+    // If `nonce` isn't provided on a user message send/reply, generate a snowflake nonce & set `enforce_nonce`
+    // (matching Discord's web client) unless `enforceNonce` is explicitly set to `false`.
     if (nonce === undefined) {
-      if (this.options.enforceNonce !== false && this.target.client.options.enforceNonce) {
+      if (!isWebhook && !isEdit && this.options.enforceNonce !== false && this.target.client.options.enforceNonce) {
         nonce = DiscordSnowflake.generate().toString();
         enforce_nonce = true;
       } else if (enforce_nonce) {
@@ -239,7 +240,7 @@ class MessagePayload {
       content,
       tts,
       nonce,
-      enforce_nonce,
+      enforce_nonce: enforce_nonce || undefined,
       embeds: this.options.embeds?.map(embed =>
         isJSONEncodable(embed) ? embed.toJSON() : this.target.client.options.jsonTransformer(embed),
       ),

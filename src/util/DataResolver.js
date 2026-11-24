@@ -57,6 +57,7 @@ function resolveCode(data, regex) {
  * @private
  */
 function resolveInviteCode(data) {
+  const Invite = require('../structures/Invite');
   return resolveCode(data, Invite.InvitesPattern);
 }
 
@@ -167,6 +168,3 @@ module.exports = {
   resolveFile,
   resolveInviteTargetUsersFile,
 };
-
-// Fixes circular
-const Invite = require('../structures/Invite');

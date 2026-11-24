@@ -97,7 +97,11 @@ class UserManager extends CachedManager {
       if (existing && !existing.partial) return existing;
     }
 
-    const data = await this.client.rest.get(Routes.user(id));
+    // Discord blocks GET /users/:id for user tokens: use /users/@me for self and /users/:id/profile for others.
+    const data =
+      id === this.client.user?.id
+        ? await this.client.rest.get(Routes.user())
+        : (await this.client.rest.get(`/users/${id}/profile`)).user;
     return this._add(data, cache);
   }
 

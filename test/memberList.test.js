@@ -43,6 +43,26 @@ test('fetchMemberList collects members from the gateway member list', async () =
   assert.equal(members.size, 2);
   assert.ok(members.has('u1') && members.has('u2'));
   assert.equal(guild.members.cache.size, 2); // also populated the cache
+
+  // Caps collected members at limit even when a single SYNC frame contains more items
+  const cappedPromise = guild.members.fetchMemberList('123456789012345678', { limit: 1, time: 2000 });
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: {
+      guild_id: '1',
+      ops: [
+        {
+          op: 'SYNC',
+          items: [
+            { member: { user: { id: 'u1', username: 'alice' }, roles: [] } },
+            { member: { user: { id: 'u2', username: 'bob' }, roles: [] } },
+          ],
+        },
+      ],
+    },
+  });
+  const capped = await cappedPromise;
+  assert.equal(capped.size, 1);
 });
 
 test('fetchMemberList requires a finite positive limit (op-14 is a window, not a bulk fetch)', () => {

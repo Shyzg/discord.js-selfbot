@@ -186,7 +186,6 @@ import {
   PermissionFlagsBits,
   PollLayoutType,
   RESTGetAPIGuildOnboardingResult,
-  RESTGetAPIGuildThreadsResult,
   RESTPostAPIApplicationCommandsJSONBody,
   ReactionType,
   RoleFlags,
@@ -3495,8 +3494,6 @@ export class GuildChannelManager extends CachedManager<Snowflake, GuildBasedChan
     options?: SetChannelPositionOptions,
   ): Promise<GuildChannel>;
   public setPositions(channelPositions: readonly ChannelPosition[]): Promise<Guild>;
-  public fetchActiveThreads(cache?: boolean): Promise<FetchedThreads>;
-  private rawFetchGuildActiveThreads(): Promise<RESTGetAPIGuildThreadsResult>;
   public delete(channel: GuildChannelResolvable, reason?: string): Promise<void>;
 }
 
@@ -3572,10 +3569,8 @@ export class GuildMemberManager extends CachedManager<Snowflake, GuildMember, Gu
     options: { limit: number; time?: number },
   ): Promise<Collection<Snowflake, GuildMember>>;
   public kick(user: UserResolvable, reason?: string): Promise<GuildMember | User | Snowflake>;
-  public list(options?: GuildListMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public prune(options: GuildPruneMembersOptions & { dry?: false; count: false }): Promise<null>;
   public prune(options?: GuildPruneMembersOptions): Promise<number>;
-  public search(options: GuildSearchMembersOptions): Promise<Collection<Snowflake, GuildMember>>;
   public unban(user: UserResolvable, reason?: string): Promise<User | null>;
   public addRole(options: AddOrRemoveGuildMemberRoleOptions): Promise<GuildMember | User | Snowflake>;
   public removeRole(options: AddOrRemoveGuildMemberRoleOptions): Promise<GuildMember | User | Snowflake>;
@@ -3849,9 +3844,7 @@ export class ThreadManager<ThreadOnly extends boolean = boolean> extends CachedM
     options: FetchThreadsOptions & { archived: FetchArchivedThreadOptions },
     cacheOptions?: { cache?: boolean },
   ): Promise<FetchedThreadsMore>;
-  public fetch(options?: FetchThreadsOptions, cacheOptions?: { cache?: boolean }): Promise<FetchedThreads>;
   public fetchArchived(options?: FetchArchivedThreadOptions, cache?: boolean): Promise<FetchedThreadsMore>;
-  public fetchActive(cache?: boolean): Promise<FetchedThreads>;
 }
 
 export class GuildTextThreadManager<AllowedThreadType> extends ThreadManager<false> {
@@ -5364,18 +5357,6 @@ export interface GuildPruneMembersOptions {
 export interface GuildWidgetSettingsData {
   enabled: boolean;
   channel: TextChannel | NewsChannel | VoiceBasedChannel | ForumChannel | MediaChannel | Snowflake | null;
-}
-
-export interface GuildSearchMembersOptions {
-  query: string;
-  limit?: number;
-  cache?: boolean;
-}
-
-export interface GuildListMembersOptions {
-  after?: Snowflake;
-  limit?: number;
-  cache?: boolean;
 }
 
 // TODO: use conditional types for better TS support

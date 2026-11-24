@@ -213,13 +213,15 @@ class GuildMemberManager extends CachedManager {
           if (op.op === 'SYNC') sawSync = true;
           const items = op.op === 'SYNC' ? (op.items ?? []) : op.item ? [op.item] : [];
           for (const item of items) {
-            if (item?.member) collected.set(item.member.user.id, this._add(item.member));
+            if (item?.member) {
+              collected.set(item.member.user.id, this._add(item.member));
+              if (collected.size >= limit) {
+                cleanup();
+                resolve(collected);
+                return;
+              }
+            }
           }
-        }
-        if (collected.size >= limit) {
-          cleanup();
-          resolve(collected);
-          return;
         }
         if (sawSync && collected.size > before && nextBatch < ranges.length) {
           try {
@@ -341,45 +343,6 @@ class GuildMemberManager extends CachedManager {
    */
   fetchMe(options) {
     return this.fetch({ ...options, user: this.client.user.id });
-  }
-
-  /**
-   * Options used for searching guild members.
-   * @typedef {Object} GuildSearchMembersOptions
-   * @property {string} query Filter members whose username or nickname start with this query
-   * @property {number} [limit] Maximum number of members to search
-   * @property {boolean} [cache=true] Whether or not to cache the fetched member(s)
-   */
-
-  /**
-   * Searches for members in the guild based on a query.
-   * @param {GuildSearchMembersOptions} options Options for searching members
-   * @returns {Promise<Collection<Snowflake, GuildMember>>}
-   */
-  async search({ query, limit, cache = true } = {}) {
-    const data = await this.client.rest.get(Routes.guildMembersSearch(this.guild.id), {
-      query: makeURLSearchParams({ query, limit }),
-    });
-    return data.reduce((col, member) => col.set(member.user.id, this._add(member, cache)), new Collection());
-  }
-
-  /**
-   * Options used for listing guild members.
-   * @typedef {Object} GuildListMembersOptions
-   * @property {Snowflake} [after] Limit fetching members to those with an id greater than the supplied id
-   * @property {number} [limit] Maximum number of members to list
-   * @property {boolean} [cache=true] Whether or not to cache the fetched member(s)
-   */
-
-  /**
-   * Lists up to 1000 members of the guild.
-   * @param {GuildListMembersOptions} [options] Options for listing members
-   * @returns {Promise<Collection<Snowflake, GuildMember>>}
-   */
-  async list({ after, limit, cache = true } = {}) {
-    const query = makeURLSearchParams({ limit, after });
-    const data = await this.client.rest.get(Routes.guildMembers(this.guild.id), { query });
-    return data.reduce((col, member) => col.set(member.user.id, this._add(member, cache)), new Collection());
   }
 
   /**

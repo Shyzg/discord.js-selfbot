@@ -4,7 +4,6 @@ const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
 const { ChannelType, Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
-const GuildTextThreadManager = require('./GuildTextThreadManager');
 const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const GuildChannel = require('../structures/GuildChannel');
 const PermissionOverwrites = require('../structures/PermissionOverwrites');
@@ -472,30 +471,6 @@ class GuildChannelManager extends CachedManager {
    * @property {Collection<Snowflake, ThreadChannel>} threads The threads that were fetched
    * @property {Collection<Snowflake, ThreadMember>} members The thread members in the received threads
    */
-
-  /**
-   * Obtains all active thread channels in the guild.
-   * @param {boolean} [cache=true] Whether to cache the fetched data
-   * @returns {Promise<FetchedThreads>}
-   * @example
-   * // Fetch all threads from the guild
-   * message.guild.channels.fetchActiveThreads()
-   *   .then(fetched => console.log(`There are ${fetched.threads.size} threads.`))
-   *   .catch(console.error);
-   */
-  async fetchActiveThreads(cache = true) {
-    const data = await this.rawFetchGuildActiveThreads();
-    return GuildTextThreadManager._mapThreads(data, this.client, { guild: this.guild, cache });
-  }
-
-  /**
-   * `GET /guilds/{guild.id}/threads/active`
-   * @private
-   * @returns {Promise<RESTGetAPIGuildThreadsResult>}
-   */
-  rawFetchGuildActiveThreads() {
-    return this.client.rest.get(Routes.guildActiveThreads(this.guild.id));
-  }
 
   /**
    * Deletes the channel.
