@@ -1,7 +1,7 @@
 'use strict';
 
+const { isDeepStrictEqual: isEqual } = require('node:util');
 const { embedLength } = require('@discordjs/builders');
-const isEqual = require('fast-deep-equal');
 
 /**
  * Represents an embed.

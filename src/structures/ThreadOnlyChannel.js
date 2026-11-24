@@ -241,8 +241,6 @@ TextBasedChannel.applyToClass(ThreadOnlyChannel, true, [
   'sendTyping',
   'createMessageCollector',
   'awaitMessages',
-  'createMessageComponentCollector',
-  'awaitMessageComponent',
 ]);
 
 module.exports = ThreadOnlyChannel;

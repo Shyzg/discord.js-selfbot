@@ -3,7 +3,7 @@
 const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
-const { OAuth2Scopes, Routes } = require('discord-api-types/v10');
+const { Routes } = require('discord-api-types/v10');
 const BaseClient = require('./BaseClient');
 const ActionsManager = require('./actions/ActionsManager');
 const ClientVoiceManager = require('./voice/ClientVoiceManager');
@@ -26,7 +26,6 @@ const Widget = require('../structures/Widget');
 const { resolveInviteCode, resolveGuildTemplateCode } = require('../util/DataResolver');
 const Events = require('../util/Events');
 const IntentsBitField = require('../util/IntentsBitField');
-const PermissionsBitField = require('../util/PermissionsBitField');
 const Status = require('../util/Status');
 const Sweepers = require('../util/Sweepers');
 
@@ -210,8 +209,15 @@ class Client extends BaseClient {
    */
   async normalLogin(login, password, { totpSecret, captcha, mfa } = {}) {
     const body = { login, password, undelete: false, login_source: null, gift_code_sku_id: null };
-    const data = await this._passwordLogin(body, captcha);
-    return this.login(await this._completeMfa(data, { totpSecret, mfa }));
+    const token = await this._passwordLogin(body, captcha)
+      .then(data => this._completeMfa(data, { totpSecret, mfa }))
+      .catch(error => {
+        // @discordjs/rest errors keep the request body, so logging one would print the password or MFA ticket/code.
+        if (error?.requestBody) delete error.requestBody;
+        throw error;
+      });
+    if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
+    return this.login(token);
   }
 
   /**
@@ -229,7 +235,8 @@ class Client extends BaseClient {
       if (!challenge?.captcha_service) throw error;
       if (!captcha) throw new DiscordjsError(ErrorCodes.CaptchaRequired, challenge.captcha_service);
       // shortcut: a single captcha retry; a second challenge rethrows. Upgrade if Discord chains captchas.
-      const headers = { 'x-captcha-key': await captcha(challenge), 'x-captcha-rqtoken': challenge.captcha_rqtoken };
+      const headers = { 'x-captcha-key': await captcha(challenge) };
+      if (challenge.captcha_rqtoken) headers['x-captcha-rqtoken'] = challenge.captcha_rqtoken;
       if (challenge.captcha_session_id) headers['x-captcha-session-id'] = challenge.captcha_session_id;
       return this.rest.post('/auth/login', { body, auth: false, headers });
     }
@@ -305,7 +312,9 @@ class Client extends BaseClient {
    */
   async QRLogin(handlers = {}) {
     const RemoteAuth = require('./RemoteAuth');
-    return this.login(await new RemoteAuth(this).run(handlers));
+    const token = await new RemoteAuth(this).run(handlers);
+    if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
+    return this.login(token);
   }
 
   /**
@@ -331,6 +340,7 @@ class Client extends BaseClient {
       auth: false,
       body: { credential, ticket: start.ticket },
     });
+    if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
     return this.login(token);
   }
 
@@ -353,6 +363,7 @@ class Client extends BaseClient {
     this.sweepers.destroy();
     await this.ws.destroy();
     this.token = null;
+    this.readyTimestamp = null;
     this.rest.setToken(null);
   }
 
@@ -527,78 +538,6 @@ class Client extends BaseClient {
     return new Widget(this, data);
   }
 
-  /**
-   * Options for {@link Client#generateInvite}.
-   * @typedef {Object} InviteGenerationOptions
-   * @property {OAuth2Scopes[]} scopes Scopes that should be requested
-   * @property {PermissionResolvable} [permissions] Permissions to request
-   * @property {GuildResolvable} [guild] Guild to preselect
-   * @property {boolean} [disableGuildSelect] Whether to disable the guild selection
-   */
-
-  /**
-   * Generates a link that can be used to invite the bot to a guild.
-   * @param {InviteGenerationOptions} [options={}] Options for the invite
-   * @returns {string}
-   * @example
-   * const link = client.generateInvite({
-   *   scopes: [OAuth2Scopes.ApplicationsCommands],
-   * });
-   * console.log(`Generated application invite link: ${link}`);
-   * @example
-   * const link = client.generateInvite({
-   *   permissions: [
-   *     PermissionFlagsBits.SendMessages,
-   *     PermissionFlagsBits.ManageGuild,
-   *     PermissionFlagsBits.MentionEveryone,
-   *   ],
-   *   scopes: [OAuth2Scopes.Bot],
-   * });
-   * console.log(`Generated bot invite link: ${link}`);
-   */
-  generateInvite(options = {}) {
-    if (typeof options !== 'object') throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
-    if (!this.application) throw new DiscordjsError(ErrorCodes.ClientNotReady, 'generate an invite link');
-
-    const { scopes } = options;
-    if (scopes === undefined) {
-      throw new DiscordjsTypeError(ErrorCodes.InvalidMissingScopes);
-    }
-    if (!Array.isArray(scopes)) {
-      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'scopes', 'Array of Invite Scopes', true);
-    }
-    if (!scopes.some(scope => [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands].includes(scope))) {
-      throw new DiscordjsTypeError(ErrorCodes.InvalidMissingScopes);
-    }
-    if (!scopes.includes(OAuth2Scopes.Bot) && options.permissions) {
-      throw new DiscordjsTypeError(ErrorCodes.InvalidScopesWithPermissions);
-    }
-    const validScopes = Object.values(OAuth2Scopes);
-    const invalidScope = scopes.find(scope => !validScopes.includes(scope));
-    if (invalidScope) {
-      throw new DiscordjsTypeError(ErrorCodes.InvalidElement, 'Array', 'scopes', invalidScope);
-    }
-
-    const query = makeURLSearchParams({
-      client_id: this.application.id,
-      scope: scopes.join(' '),
-      disable_guild_select: options.disableGuildSelect,
-    });
-
-    if (options.permissions) {
-      const permissions = PermissionsBitField.resolve(options.permissions);
-      if (permissions) query.set('permissions', permissions.toString());
-    }
-
-    if (options.guild) {
-      const guildId = this.guilds.resolveId(options.guild);
-      if (!guildId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options.guild', 'GuildResolvable');
-      query.set('guild_id', guildId);
-    }
-
-    return `${this.options.rest.api}${Routes.oauth2Authorization()}?${query}`;
-  }
-
   toJSON() {
     return super.toJSON({
       actions: false,
@@ -615,10 +554,10 @@ class Client extends BaseClient {
   get _censoredToken() {
     if (!this.token) return null;
 
-    return this.token
-      .split('.')
-      .map((val, i) => (i > 1 ? val.replace(/./g, '*') : val))
-      .join('.');
+    const parts = this.token.split('.');
+    // User MFA tokens have two parts (`mfa.<secret>`) instead of three (`id.ts.hmac`); keep only non-secret prefix parts.
+    const keep = parts.length >= 3 ? 2 : parts.length === 2 ? 1 : 0;
+    return parts.map((val, i) => (i >= keep ? val.replace(/./g, '*') : val)).join('.');
   }
 
   /**
@@ -627,8 +566,8 @@ class Client extends BaseClient {
    * @private
    */
   _validateOptions(options = this.options) {
-    // User accounts have no intents; the gateway IDENTIFY omits the field. Keep an empty, frozen bitfield
-    // (when none is given) so `options.intents.has(...)` still works everywhere internally.
+    // User accounts have no intents; the gateway IDENTIFY omits the field and the library never reads it. Keep a
+    // frozen bitfield (empty when none is given) so code ported from bots that reads `options.intents` still works.
     options.intents = new IntentsBitField(options.intents ?? 0).freeze();
     if (typeof options.makeCache !== 'function') {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'makeCache', 'a function');
@@ -638,9 +577,6 @@ class Client extends BaseClient {
     }
     if (!Array.isArray(options.partials)) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'partials', 'an Array');
-    }
-    if (typeof options.waitGuildTimeout !== 'number' || isNaN(options.waitGuildTimeout)) {
-      throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'waitGuildTimeout', 'a number');
     }
     if (typeof options.failIfNotExists !== 'boolean') {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'failIfNotExists', 'a boolean');

@@ -9,48 +9,58 @@ const { randomUUID } = require('node:crypto');
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36';
 
-/**
- * The web-client fingerprint sent as `x-super-properties` (REST) and the gateway IDENTIFY `properties`.
- * The per-launch ids are generated once per process, so REST and the gateway share one "launch" like a
- * single browser session would.
- * @type {Object}
- * @private
- */
-const superProperties = {
-  os: 'Mac OS X',
-  browser: 'Chrome',
-  device: '',
-  device_model_name: '',
-  system_locale: 'en-US',
-  has_client_mods: false,
-  browser_user_agent: USER_AGENT,
-  browser_version: '158.0.0.0',
-  os_version: '10.15.7',
-  referrer: 'https://discord.com/',
-  referring_domain: 'discord.com',
-  referrer_current: 'https://discord.com/',
-  referring_domain_current: 'discord.com',
-  release_channel: 'stable',
-  client_build_number: 679055,
-  client_event_source: null,
-  client_launch_id: randomUUID(),
-  launch_signature: randomUUID(),
-  client_heartbeat_session_id: randomUUID(),
-  client_app_state: 'focused',
-};
+// The web client sets these launch_signature bits only when it detects a client mod (Vencord, BetterDiscord, ...),
+// so a fully random UUID reports mods: https://docs.discord.food/reference#launch-signature
+const LAUNCH_SIGNATURE_MOD_BITS = [119, 108, 100, 91, 84, 75, 61, 55, 48, 38, 24, 11].reduce(
+  (mask, bit) => mask | (1n << BigInt(bit)),
+  0n,
+);
+
+function launchSignature() {
+  const hex = (BigInt(`0x${randomUUID().replaceAll('-', '')}`) & ~LAUNCH_SIGNATURE_MOD_BITS)
+    .toString(16)
+    .padStart(32, '0');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 /**
- * Static headers the web client attaches to every REST request; set once as REST manager headers.
- * (Authorization and User-Agent are recomputed per-request by @discordjs/rest, so they are fixed in
- * {@link fixUserRequestHeaders} instead.)
- * @type {Object<string, string>}
+ * Builds a fresh web-client fingerprint (`x-super-properties` for REST and `properties` for gateway IDENTIFY)
+ * with its own per-launch UUIDs, so separate `Client` instances in one process do not share session ids.
+ * @returns {{ superProperties: Object, userHeaders: Object<string, string> }}
  * @private
  */
-const userHeaders = {
-  'x-super-properties': Buffer.from(JSON.stringify(superProperties)).toString('base64'),
-  'x-discord-locale': superProperties.system_locale,
-  'x-discord-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-};
+function createUserProperties() {
+  const props = {
+    os: 'Mac OS X',
+    browser: 'Chrome',
+    device: '',
+    device_model_name: '',
+    system_locale: 'en-US',
+    has_client_mods: false,
+    browser_user_agent: USER_AGENT,
+    browser_version: '158.0.0.0',
+    os_version: '10.15.7',
+    referrer: 'https://discord.com/',
+    referring_domain: 'discord.com',
+    referrer_current: 'https://discord.com/',
+    referring_domain_current: 'discord.com',
+    release_channel: 'stable',
+    client_build_number: 679055,
+    client_event_source: null,
+    client_launch_id: randomUUID(),
+    launch_signature: launchSignature(),
+    client_heartbeat_session_id: randomUUID(),
+    client_app_state: 'focused',
+  };
+  const headers = {
+    'x-super-properties': Buffer.from(JSON.stringify(props)).toString('base64'),
+    'x-discord-locale': props.system_locale,
+    'x-discord-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+  return { superProperties: props, userHeaders: headers };
+}
+
+const { superProperties, userHeaders } = createUserProperties();
 
 /**
  * Rewrites the per-request headers @discordjs/rest computes so they match a user account: the token carries
@@ -71,9 +81,10 @@ function fixUserRequestHeaders(headers) {
 }
 
 // The web client's gateway IDENTIFY `capabilities` (1767421), which selects the modern (user) event format, minus
-// the bits whose events this library has no handler for: AUTH_TOKEN_REFRESH (1 << 8, READY `auth_token`),
-// DEBOUNCE_MESSAGE_REACTIONS (1 << 13, MESSAGE_REACTION_ADD_MANY) and PASSIVE_GUILD_UPDATE_V2 (1 << 14,
-// PASSIVE_UPDATE_V2 instead of VOICE_STATE_UPDATE). Keep them cleared when refreshing the web value.
+// three bits whose events this library can't apply correctly. Keep them cleared when refreshing the web value:
+// - AUTH_TOKEN_REFRESH (1 << 8): @discordjs/ws can't switch tokens, so later resumes would send the discarded one.
+// - DEBOUNCE_MESSAGE_REACTIONS (1 << 13): reaction bursts carry user ids only, so uncached reactors would be lost.
+// - PASSIVE_GUILD_UPDATE_V2 (1 << 14): batched voice updates drop a join and leave that fall between two batches.
 // shortcut: point-in-time snapshot; refresh alongside client_build_number if the gateway starts rejecting it.
 const CAPABILITIES = 1767421 & ~((1 << 8) | (1 << 13) | (1 << 14));
 
@@ -91,4 +102,12 @@ function applyUserIdentify(d) {
   return d;
 }
 
-module.exports = { USER_AGENT, superProperties, userHeaders, fixUserRequestHeaders, CAPABILITIES, applyUserIdentify };
+module.exports = {
+  USER_AGENT,
+  createUserProperties,
+  superProperties,
+  userHeaders,
+  fixUserRequestHeaders,
+  CAPABILITIES,
+  applyUserIdentify,
+};

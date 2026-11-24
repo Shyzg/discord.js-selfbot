@@ -4,7 +4,8 @@
 const assert = require('node:assert/strict');
 const { Buffer } = require('node:buffer');
 const { test } = require('node:test');
-const { createPublicKey, publicEncrypt, createHash, constants, randomBytes } = require('node:crypto');
+const { setTimeout } = require('node:timers/promises');
+const { createPublicKey, publicEncrypt, constants, randomBytes } = require('node:crypto');
 const { Client } = require('../src');
 const RemoteAuth = require('../src/client/RemoteAuth');
 
@@ -41,7 +42,8 @@ test('handshake: init, nonce proof, QR url, and token decryption', async () => {
   const nonce = randomBytes(32);
   await remote._handle({ op: 'nonce_proof', encrypted_nonce: serverEncrypt(remote.encodedPublicKey, nonce) }, ctx);
   const proof = sent.find(s => s.op === 'nonce_proof');
-  assert.equal(proof.nonce, createHash('sha256').update(nonce).digest('base64url'));
+  // docs.discord.food (remote auth, Nonce Proof): the decrypted nonce itself, base64url-encoded
+  assert.equal(proof.nonce, nonce.toString('base64url'));
 
   let qrUrl;
   await remote._handle({ op: 'pending_remote_init', fingerprint: 'FP123' }, { ...ctx, onQRCode: url => (qrUrl = url) });
@@ -106,4 +108,91 @@ test('pending_remote_init renders a QR to the terminal when no onQRCode handler 
   }
   assert.equal(logs.length, 1);
   assert.match(logs[0], /discord\.com\/ra\/FP/); // the url is printed next to the rendered QR
+});
+
+test('the socket closing right after pending_login does not fail the login', async t => {
+  // Discord closes the remote-auth socket as soon as it sends pending_login, while the ticket exchange is in flight.
+  const original = globalThis.WebSocket;
+  t.after(() => {
+    globalThis.WebSocket = original;
+  });
+  const sockets = [];
+  globalThis.WebSocket = class extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send() {}
+    close() {}
+  };
+  const client = userClient();
+  const remote = new RemoteAuth(client);
+  client.rest = {
+    post: async () => {
+      await setTimeout(20);
+      return { encrypted_token: serverEncrypt(remote.encodedPublicKey, 'USER_TOKEN') };
+    },
+  };
+
+  const login = remote.run({ onQRCode: () => {} });
+  const [socket] = sockets;
+  socket.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ op: 'pending_login', ticket: 'T' }) }));
+  socket.dispatchEvent(new Event('close'));
+  assert.equal(await login, 'USER_TOKEN');
+});
+
+test('a socket error during teardown after pending_login does not fail the login', async t => {
+  const original = globalThis.WebSocket;
+  t.after(() => {
+    globalThis.WebSocket = original;
+  });
+  const sockets = [];
+  globalThis.WebSocket = class extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send() {}
+    close() {}
+  };
+  const client = userClient();
+  const remote = new RemoteAuth(client);
+  client.rest = {
+    post: async () => {
+      await setTimeout(20);
+      return { encrypted_token: serverEncrypt(remote.encodedPublicKey, 'USER_TOKEN') };
+    },
+  };
+
+  const login = remote.run({ onQRCode: () => {} });
+  const [socket] = sockets;
+  socket.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ op: 'pending_login', ticket: 'T' }) }));
+  socket.dispatchEvent(new Event('error'));
+  assert.equal(await login, 'USER_TOKEN');
+});
+
+test('an async onQRCode handler rejection fails run() cleanly', async t => {
+  const original = globalThis.WebSocket;
+  t.after(() => {
+    globalThis.WebSocket = original;
+  });
+  const sockets = [];
+  globalThis.WebSocket = class extends EventTarget {
+    constructor() {
+      super();
+      sockets.push(this);
+    }
+    send() {}
+    close() {}
+  };
+  const remote = new RemoteAuth(userClient());
+  const login = remote.run({
+    onQRCode: async () => {
+      throw new Error('qr ui broke');
+    },
+  });
+  sockets[0].dispatchEvent(
+    new MessageEvent('message', { data: JSON.stringify({ op: 'pending_remote_init', fingerprint: 'FP' }) }),
+  );
+  await assert.rejects(login, /qr ui broke/);
 });

@@ -1,6 +1,6 @@
 'use strict';
 
-const { generateKeyPairSync, privateDecrypt, createHash, constants } = require('node:crypto');
+const { generateKeyPairSync, privateDecrypt, constants } = require('node:crypto');
 const { Buffer } = require('node:buffer');
 const { setInterval, clearInterval } = require('node:timers');
 const { DiscordjsError, ErrorCodes } = require('../errors');
@@ -22,6 +22,7 @@ class RemoteAuth {
     this.encodedPublicKey = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
     this.ws = null;
     this.heartbeat = null;
+    this.loggingIn = false;
   }
 
   /**
@@ -40,8 +41,13 @@ class RemoteAuth {
       this.ws = new WebSocket(REMOTE_AUTH_GATEWAY, {
         headers: { Origin: 'https://discord.com', 'User-Agent': USER_AGENT },
       });
-      this.ws.addEventListener('error', () => fail('gateway connection error'));
-      this.ws.addEventListener('close', () => fail('gateway closed before login completed'));
+      this.ws.addEventListener('error', () => {
+        if (!this.loggingIn) fail('gateway connection error');
+      });
+      // Discord closes the socket right after pending_login; from then on the ticket exchange decides the outcome.
+      this.ws.addEventListener('close', () => {
+        if (!this.loggingIn) fail('gateway closed before login completed');
+      });
       this.ws.addEventListener('message', ({ data }) => {
         let message;
         try {
@@ -67,15 +73,14 @@ class RemoteAuth {
         this.heartbeat = setInterval(() => this._send({ op: 'heartbeat' }), message.heartbeat_interval);
         this._send({ op: 'init', encoded_public_key: this.encodedPublicKey });
         break;
-      case 'nonce_proof': {
-        const nonce = this._decrypt(message.encrypted_nonce);
-        this._send({ op: 'nonce_proof', nonce: createHash('sha256').update(nonce).digest('base64url') });
+      case 'nonce_proof':
+        // The proof is the decrypted nonce itself, base64url-encoded (not a hash of it).
+        this._send({ op: 'nonce_proof', nonce: this._decrypt(message.encrypted_nonce).toString('base64url') });
         break;
-      }
       case 'pending_remote_init': {
         const url = `https://discord.com/ra/${message.fingerprint}`;
         if (onQRCode) {
-          onQRCode(url);
+          await onQRCode(url);
         } else {
           // No handler: render a scannable QR to the terminal by default.
           const { default: encodeQR } = await import('qr');
@@ -84,9 +89,10 @@ class RemoteAuth {
         break;
       }
       case 'pending_ticket':
-        onUserData?.(this._parseUser(this._decrypt(message.encrypted_user_payload).toString()));
+        await onUserData?.(this._parseUser(this._decrypt(message.encrypted_user_payload).toString()));
         break;
       case 'pending_login': {
+        this.loggingIn = true;
         const { encrypted_token: encryptedToken } = await this.client.rest.post('/users/@me/remote-auth/login', {
           body: { ticket: message.ticket },
           auth: false,

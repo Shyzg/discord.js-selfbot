@@ -62,23 +62,6 @@ class Sweepers {
   }
 
   /**
-   * Sweeps all guild and global application commands and removes the ones which are indicated by the filter.
-   * @param {Function} filter The function used to determine which commands will be removed from the caches.
-   * @returns {number} Amount of commands that were removed from the caches
-   */
-  sweepApplicationCommands(filter) {
-    const { guilds, items: guildCommands } = this._sweepGuildDirectProp('commands', filter, { emit: false });
-
-    const globalCommands = this.client.application?.commands.cache.sweep(filter) ?? 0;
-
-    this.client.emit(
-      Events.CacheSweep,
-      `Swept ${globalCommands} global application commands and ${guildCommands} guild commands in ${guilds} guilds.`,
-    );
-    return guildCommands + globalCommands;
-  }
-
-  /**
    * Sweeps all auto moderation rules and removes the ones which are indicated by the filter.
    * @param {Function} filter The function used to determine
    * which auto moderation rules will be removed from the caches

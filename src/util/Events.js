@@ -47,7 +47,6 @@
  * @property {string} GuildStickerUpdate stickerUpdate
  * @property {string} GuildUnavailable guildUnavailable
  * @property {string} GuildUpdate guildUpdate
- * @property {string} Invalidated invalidated
  * @property {string} InviteCreate inviteCreate
  * @property {string} InviteDelete inviteDelete
  * @property {string} MessageBulkDelete messageDeleteBulk
@@ -136,7 +135,6 @@ module.exports = {
   GuildStickerUpdate: 'stickerUpdate',
   GuildUnavailable: 'guildUnavailable',
   GuildUpdate: 'guildUpdate',
-  Invalidated: 'invalidated',
   InviteCreate: 'inviteCreate',
   InviteDelete: 'inviteDelete',
   MessageBulkDelete: 'messageDeleteBulk',

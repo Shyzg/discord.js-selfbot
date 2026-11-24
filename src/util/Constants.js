@@ -11,7 +11,6 @@ exports.MaxBulkDeletableMessageAge = 1_209_600_000;
 /**
  * The name of an item to be swept in Sweepers
  * * `autoModerationRules`
- * * `applicationCommands` - both global and guild commands
  * * `bans`
  * * `emojis`
  * * `invites` - accepts the `lifetime` property, using it will sweep based on expires timestamp
@@ -29,7 +28,6 @@ exports.MaxBulkDeletableMessageAge = 1_209_600_000;
  */
 exports.SweeperKeys = [
   'autoModerationRules',
-  'applicationCommands',
   'bans',
   'emojis',
   'invites',
@@ -132,7 +130,7 @@ exports.TextBasedChannelTypes = [...exports.GuildTextBasedChannelTypes, ChannelT
  * * {@link ChannelType.GuildStageVoice}
  * @typedef {ChannelType[]} SendableChannels
  */
-exports.SendableChannels = [...exports.GuildTextBasedChannelTypes, ChannelType.DM];
+exports.SendableChannels = [...exports.GuildTextBasedChannelTypes, ChannelType.DM, ChannelType.GroupDM];
 
 /**
  * The types of channels that are threads. The available types are:

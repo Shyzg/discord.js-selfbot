@@ -26,6 +26,13 @@ test('super-properties carry distinct, valid per-launch UUIDs', () => {
   assert.equal(superProperties.has_client_mods, false); // full fingerprint present
 });
 
+test('launch_signature reports no client mods (its mod-detection bits are 0)', () => {
+  // The mask from the launch-signature pseudocode on docs.discord.food (discord.py-self uses the same one).
+  const modBits =
+    0b00000000100000000001000000010000000010000001000000001000000000000010000010000001000000000100000000000001000000000000100000000000n;
+  assert.equal(BigInt(`0x${superProperties.launch_signature.replaceAll('-', '')}`) & modBits, 0n);
+});
+
 test('fixUserRequestHeaders strips the Bot scheme and spoofs the User-Agent', () => {
   const headers = { Authorization: 'Bot my.user.token', 'User-Agent': 'DiscordBot (discord.js)' };
   fixUserRequestHeaders(headers);
@@ -39,12 +46,18 @@ test('fixUserRequestHeaders leaves unauthenticated requests untouched', () => {
   assert.equal('Authorization' in headers, false);
 });
 
-test('a Client injects the web-client fingerprint into REST and needs no intents', () => {
-  const client = new Client();
-  assert.equal(Number(client.options.intents.bitfield), 0); // empty but valid, so intents.has() still works
-  assert.equal(client.options.rest.headers['x-super-properties'], userHeaders['x-super-properties']);
+test('a Client injects its own per-client web-client fingerprint into REST and needs no intents', () => {
+  const clientA = new Client();
+  const clientB = new Client();
+  assert.equal(Number(clientA.options.intents.bitfield), 0); // empty but valid, so intents.has() still works
+  const propsA = JSON.parse(Buffer.from(clientA.options.rest.headers['x-super-properties'], 'base64').toString());
+  const propsB = JSON.parse(Buffer.from(clientB.options.rest.headers['x-super-properties'], 'base64').toString());
+  assert.equal(propsA.client_build_number, superProperties.client_build_number);
+  assert.notEqual(propsA.client_launch_id, propsB.client_launch_id);
+  assert.notEqual(propsA.launch_signature, propsB.launch_signature);
+  assert.notEqual(propsA.client_heartbeat_session_id, propsB.client_heartbeat_session_id);
   // makeRequest is wrapped to fix the auth scheme + User-Agent, so it differs from the @discordjs/rest default
-  assert.notEqual(client.options.rest.makeRequest, require('@discordjs/rest').DefaultRestOptions.makeRequest);
+  assert.notEqual(clientA.options.rest.makeRequest, require('@discordjs/rest').DefaultRestOptions.makeRequest);
 });
 
 test('a Client constructs with no options (intents are no longer required)', () => {

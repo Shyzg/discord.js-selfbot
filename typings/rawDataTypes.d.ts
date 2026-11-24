@@ -97,7 +97,6 @@ export type RawEmojiData =
   | RawReactionEmojiData
   | GatewayActivityEmoji
   | Omit<Partial<APIPartialEmoji>, 'animated'>;
-export type RawApplicationEmojiData = APIEmoji;
 export type RawGuildEmojiData = APIEmoji;
 export type RawReactionEmojiData = APIEmoji | APIPartialEmoji;
 

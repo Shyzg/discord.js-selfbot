@@ -9,7 +9,7 @@ const { GatewayOpcodes } = require('discord-api-types/v10');
 const { applyUserIdentify, CAPABILITIES, superProperties } = require('../src/util/UserProperties');
 const { isUserIdentify, patchUserIdentify } = require('../src/client/websocket/userIdentify');
 
-test('CAPABILITIES keeps cleared the bits whose events this library has no handler for', () => {
+test('CAPABILITIES keeps cleared the bits whose events this library cannot apply correctly', () => {
   // AUTH_TOKEN_REFRESH, DEBOUNCE_MESSAGE_REACTIONS, PASSIVE_GUILD_UPDATE_V2
   for (const bit of [8, 13, 14]) assert.equal(CAPABILITIES & (1 << bit), 0, `bit ${bit} must stay cleared`);
 });

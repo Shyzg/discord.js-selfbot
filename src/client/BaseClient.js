@@ -42,16 +42,15 @@ class BaseClient extends EventEmitter {
       rest: {
         ...defaultOptions.rest,
         ...options.rest,
-        userAgentAppendix: options.rest?.userAgentAppendix
-          ? `${Options.userAgentAppendix} ${options.rest.userAgentAppendix}`
-          : Options.userAgentAppendix,
       },
     };
 
-    // Attach the web-client fingerprint to every request and send the raw user token (no `Bot ` scheme).
-    const { userHeaders, fixUserRequestHeaders } = require('../util/UserProperties');
+    // Attach a per-client web-client fingerprint to every request and send the raw user token (no `Bot ` scheme).
+    const { createUserProperties, fixUserRequestHeaders } = require('../util/UserProperties');
+    const userProperties = createUserProperties();
+    Object.defineProperty(this, '_userProperties', { value: userProperties });
     const inner = this.options.rest.makeRequest;
-    this.options.rest.headers = { ...userHeaders, ...this.options.rest.headers };
+    this.options.rest.headers = { ...userProperties.userHeaders, ...this.options.rest.headers };
     this.options.rest.makeRequest = (url, init) => {
       fixUserRequestHeaders(init.headers);
       return inner(url, init);

@@ -14,20 +14,38 @@ class PartialGroupDMChannel extends BaseChannel {
   constructor(client, data) {
     super(client, data);
 
+    /**
+     * A manager of the messages belonging to this channel
+     * @type {PartialGroupDMMessageManager}
+     */
+    this.messages = new PartialGroupDMMessageManager(this);
+  }
+
+  _patch(data) {
+    super._patch(data);
+
     // No flags are present when fetching partial group DM channels.
     this.flags = null;
 
-    /**
-     * The name of this Group DM Channel
-     * @type {?string}
-     */
-    this.name = data.name;
+    if ('name' in data) {
+      /**
+       * The name of this Group DM Channel
+       * @type {?string}
+       */
+      this.name = data.name;
+    } else {
+      this.name ??= null;
+    }
 
-    /**
-     * The hash of the channel icon
-     * @type {?string}
-     */
-    this.icon = data.icon ?? null;
+    if ('icon' in data) {
+      /**
+       * The hash of the channel icon
+       * @type {?string}
+       */
+      this.icon = data.icon ?? null;
+    } else {
+      this.icon ??= null;
+    }
 
     /**
      * Recipient data received in a {@link PartialGroupDMChannel}.
@@ -35,17 +53,15 @@ class PartialGroupDMChannel extends BaseChannel {
      * @property {string} username The username of the recipient
      */
 
-    /**
-     * The recipients of this Group DM Channel.
-     * @type {PartialRecipient[]}
-     */
-    this.recipients = data.recipients ?? [];
-
-    /**
-     * A manager of the messages belonging to this channel
-     * @type {PartialGroupDMMessageManager}
-     */
-    this.messages = new PartialGroupDMMessageManager(this);
+    if ('recipients' in data) {
+      /**
+       * The recipients of this Group DM Channel.
+       * @type {PartialRecipient[]}
+       */
+      this.recipients = data.recipients ?? [];
+    } else {
+      this.recipients ??= [];
+    }
 
     if ('owner_id' in data) {
       /**
@@ -100,27 +116,17 @@ class PartialGroupDMChannel extends BaseChannel {
     return this.client.users.fetch(this.ownerId, options);
   }
 
-  async delete() {
-    throw new DiscordjsError(ErrorCodes.DeleteGroupDMChannel);
-  }
-
-  async fetch() {
-    throw new DiscordjsError(ErrorCodes.FetchGroupDMChannel);
-  }
-
   // These are here only for documentation purposes - they are implemented by TextBasedChannel
   get lastMessage() {}
   get lastPinAt() {}
-  createMessageComponentCollector() {}
-  awaitMessageComponent() {}
+  send() {}
+  sendTyping() {}
+  createMessageCollector() {}
+  awaitMessages() {}
 }
 
 TextBasedChannel.applyToClass(PartialGroupDMChannel, true, [
   'bulkDelete',
-  'send',
-  'sendTyping',
-  'createMessageCollector',
-  'awaitMessages',
   'fetchWebhooks',
   'createWebhook',
   'setRateLimitPerUser',

@@ -1,9 +1,16 @@
 'use strict';
 
 const { polyfillDispose } = require('@discordjs/util');
-const { __exportStar } = require('tslib');
 
 polyfillDispose();
+
+function exportStar(mod, target) {
+  for (const key of Object.keys(mod)) {
+    if (key !== 'default' && !Object.hasOwn(target, key)) {
+      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(mod, key));
+    }
+  }
+}
 
 // "Root" classes (starting points)
 exports.BaseClient = require('./client/BaseClient');
@@ -43,14 +50,11 @@ exports.Sweepers = require('./util/Sweepers');
 exports.SystemChannelFlagsBitField = require('./util/SystemChannelFlagsBitField');
 exports.ThreadMemberFlagsBitField = require('./util/ThreadMemberFlagsBitField');
 exports.UserFlagsBitField = require('./util/UserFlagsBitField');
-__exportStar(require('./util/Util.js'), exports);
+exportStar(require('./util/Util.js'), exports);
 exports.WebSocketShardEvents = require('./util/WebSocketShardEvents');
 exports.version = require('../package.json').version;
 
 // Managers
-exports.ApplicationCommandManager = require('./managers/ApplicationCommandManager');
-exports.ApplicationEmojiManager = require('./managers/ApplicationEmojiManager');
-exports.ApplicationCommandPermissionsManager = require('./managers/ApplicationCommandPermissionsManager');
 exports.AutoModerationRuleManager = require('./managers/AutoModerationRuleManager');
 exports.BaseGuildEmojiManager = require('./managers/BaseGuildEmojiManager');
 exports.CachedManager = require('./managers/CachedManager');
@@ -58,7 +62,6 @@ exports.ChannelManager = require('./managers/ChannelManager');
 exports.ClientVoiceManager = require('./client/voice/ClientVoiceManager');
 exports.DataManager = require('./managers/DataManager');
 exports.DMMessageManager = require('./managers/DMMessageManager');
-exports.GuildApplicationCommandManager = require('./managers/GuildApplicationCommandManager');
 exports.GuildBanManager = require('./managers/GuildBanManager');
 exports.GuildChannelManager = require('./managers/GuildChannelManager');
 exports.GuildEmojiManager = require('./managers/GuildEmojiManager');
@@ -92,14 +95,9 @@ exports.WebSocketShard = require('./client/websocket/WebSocketShard');
 exports.ActionRow = require('./structures/ActionRow');
 exports.ActionRowBuilder = require('./structures/ActionRowBuilder');
 exports.Activity = require('./structures/Presence').Activity;
-exports.ActivityInstance = require('./structures/ActivityInstance').ActivityInstance;
-exports.ActivityLocation = require('./structures/ActivityLocation').ActivityLocation;
 exports.AnonymousGuild = require('./structures/AnonymousGuild');
 exports.Application = require('./structures/interfaces/Application');
 exports.ApplicationCommand = require('./structures/ApplicationCommand');
-exports.ApplicationEmoji = require('./structures/ApplicationEmoji');
-exports.ApplicationRoleConnectionMetadata =
-  require('./structures/ApplicationRoleConnectionMetadata').ApplicationRoleConnectionMetadata;
 exports.AuthorizingIntegrationOwners = require('./structures/AuthorizingIntegrationOwners');
 exports.AutoModerationActionExecution = require('./structures/AutoModerationActionExecution');
 exports.AutoModerationRule = require('./structures/AutoModerationRule');
@@ -150,7 +148,6 @@ exports.LabelComponent = require('./structures/LabelComponent');
 exports.Message = require('./structures/Message').Message;
 exports.Attachment = require('./structures/Attachment');
 exports.AttachmentBuilder = require('./structures/AttachmentBuilder');
-exports.ModalBuilder = require('./structures/ModalBuilder');
 exports.MediaChannel = require('./structures/MediaChannel');
 exports.MediaGalleryComponent = require('./structures/MediaGalleryComponent');
 exports.MediaGalleryItem = require('./structures/MediaGalleryItem');
@@ -195,7 +192,6 @@ exports.Team = require('./structures/Team');
 exports.TeamMember = require('./structures/TeamMember');
 exports.TextChannel = require('./structures/TextChannel');
 exports.TextDisplayComponent = require('./structures/TextDisplayComponent');
-exports.TextInputBuilder = require('./structures/TextInputBuilder');
 exports.TextInputComponent = require('./structures/TextInputComponent');
 exports.ThreadChannel = require('./structures/ThreadChannel');
 exports.ThreadMember = require('./structures/ThreadMember');
@@ -215,9 +211,9 @@ exports.WelcomeChannel = require('./structures/WelcomeChannel');
 exports.WelcomeScreen = require('./structures/WelcomeScreen');
 
 // External
-__exportStar(require('discord-api-types/v10'), exports);
-__exportStar(require('@discordjs/builders'), exports);
-__exportStar(require('@discordjs/formatters'), exports);
-__exportStar(require('@discordjs/rest'), exports);
-__exportStar(require('@discordjs/util'), exports);
-__exportStar(require('@discordjs/ws'), exports);
+exportStar(require('discord-api-types/v10'), exports);
+exportStar(require('@discordjs/builders'), exports);
+exportStar(require('@discordjs/formatters'), exports);
+exportStar(require('@discordjs/rest'), exports);
+exportStar(require('@discordjs/util'), exports);
+exportStar(require('@discordjs/ws'), exports);

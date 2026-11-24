@@ -1,10 +1,9 @@
 'use strict';
 
+const { isDeepStrictEqual: isEqual } = require('node:util');
 const { DiscordSnowflake } = require('@sapphire/snowflake');
 const { ApplicationCommandOptionType } = require('discord-api-types/v10');
-const isEqual = require('fast-deep-equal');
 const Base = require('./Base');
-const ApplicationCommandPermissionsManager = require('../managers/ApplicationCommandPermissionsManager');
 const PermissionsBitField = require('../util/PermissionsBitField');
 
 /**
@@ -35,16 +34,10 @@ class ApplicationCommand extends Base {
 
     /**
      * The guild's id this command is part of, this may be non-null when `guild` is `null` if the command
-     * was fetched from the `ApplicationCommandManager`
+     * was fetched without its guild
      * @type {?Snowflake}
      */
     this.guildId = guild?.id ?? guildId ?? null;
-
-    /**
-     * The manager for permissions of this command on its guild or arbitrary guilds when the command is global
-     * @type {ApplicationCommandPermissionsManager}
-     */
-    this.permissions = new ApplicationCommandPermissionsManager(this);
 
     /**
      * The type of this application command
@@ -214,15 +207,6 @@ class ApplicationCommand extends Base {
   }
 
   /**
-   * The manager that this command belongs to
-   * @type {ApplicationCommandManager}
-   * @readonly
-   */
-  get manager() {
-    return (this.guild ?? this.client.application).commands;
-  }
-
-  /**
    * Data for creating or editing an application command.
    * @typedef {Object} ApplicationCommandData
    * @property {string} name The name of the command, must be in all lowercase if type is
@@ -283,114 +267,6 @@ class ApplicationCommand extends Base {
    * @property {LocalizationMap} [nameLocalizations] The localized names for this choice
    * @property {string|number} value The value of the choice
    */
-
-  /**
-   * Edits this application command.
-   * @param {Partial<ApplicationCommandData>} data The data to update the command with
-   * @returns {Promise<ApplicationCommand>}
-   * @example
-   * // Edit the description of this command
-   * command.edit({
-   *   description: 'New description',
-   * })
-   *   .then(console.log)
-   *   .catch(console.error);
-   */
-  edit(data) {
-    return this.manager.edit(this, data, this.guildId);
-  }
-
-  /**
-   * Edits the name of this ApplicationCommand
-   * @param {string} name The new name of the command
-   * @returns {Promise<ApplicationCommand>}
-   */
-  setName(name) {
-    return this.edit({ name });
-  }
-
-  /**
-   * Edits the localized names of this ApplicationCommand
-   * @param {LocalizationMap} nameLocalizations The new localized names for the command
-   * @returns {Promise<ApplicationCommand>}
-   * @example
-   * // Edit the name localizations of this command
-   * command.setNameLocalizations({
-   *   'en-GB': 'test',
-   *   'pt-BR': 'teste',
-   * })
-   *   .then(console.log)
-   *   .catch(console.error)
-   */
-  setNameLocalizations(nameLocalizations) {
-    return this.edit({ nameLocalizations });
-  }
-
-  /**
-   * Edits the description of this ApplicationCommand
-   * @param {string} description The new description of the command
-   * @returns {Promise<ApplicationCommand>}
-   */
-  setDescription(description) {
-    return this.edit({ description });
-  }
-
-  /**
-   * Edits the localized descriptions of this ApplicationCommand
-   * @param {LocalizationMap} descriptionLocalizations The new localized descriptions for the command
-   * @returns {Promise<ApplicationCommand>}
-   * @example
-   * // Edit the description localizations of this command
-   * command.setDescriptionLocalizations({
-   *   'en-GB': 'A test command',
-   *   'pt-BR': 'Um comando de teste',
-   * })
-   *   .then(console.log)
-   *   .catch(console.error)
-   */
-  setDescriptionLocalizations(descriptionLocalizations) {
-    return this.edit({ descriptionLocalizations });
-  }
-
-  /**
-   * Edits the default member permissions of this ApplicationCommand
-   * @param {?PermissionResolvable} defaultMemberPermissions The default member permissions required to run this command
-   * @returns {Promise<ApplicationCommand>}
-   */
-  setDefaultMemberPermissions(defaultMemberPermissions) {
-    return this.edit({ defaultMemberPermissions });
-  }
-
-  /**
-   * Edits the DM permission of this ApplicationCommand
-   * @param {boolean} [dmPermission=true] Whether the command can be used in DMs
-   * @returns {Promise<ApplicationCommand>}
-   */
-  setDMPermission(dmPermission = true) {
-    return this.edit({ dmPermission });
-  }
-
-  /**
-   * Edits the options of this ApplicationCommand
-   * @param {ApplicationCommandOptionData[]} options The options to set for this command
-   * @returns {Promise<ApplicationCommand>}
-   */
-  setOptions(options) {
-    return this.edit({ options });
-  }
-
-  /**
-   * Deletes this command.
-   * @returns {Promise<ApplicationCommand>}
-   * @example
-   * // Delete this command
-   * command.delete()
-   *   .then(console.log)
-   *   .catch(console.error);
-   */
-  delete() {
-    return this.manager.delete(this, this.guildId);
-  }
 
   /**
    * Whether this command equals another command. It compares all properties, so for most operations

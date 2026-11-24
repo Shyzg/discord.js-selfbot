@@ -599,8 +599,6 @@ class ThreadChannel extends BaseChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  createMessageComponentCollector() {}
-  awaitMessageComponent() {}
   bulkDelete() {}
   // Doesn't work on Thread channels; setRateLimitPerUser() {}
   // Doesn't work on Thread channels; setNSFW() {}

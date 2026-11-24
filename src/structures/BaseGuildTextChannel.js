@@ -184,8 +184,6 @@ class BaseGuildTextChannel extends GuildChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  createMessageComponentCollector() {}
-  awaitMessageComponent() {}
   bulkDelete() {}
   fetchWebhooks() {}
   createWebhook() {}

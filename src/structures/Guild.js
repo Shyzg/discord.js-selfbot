@@ -14,7 +14,6 @@ const Webhook = require('./Webhook');
 const WelcomeScreen = require('./WelcomeScreen');
 const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const AutoModerationRuleManager = require('../managers/AutoModerationRuleManager');
-const GuildApplicationCommandManager = require('../managers/GuildApplicationCommandManager');
 const GuildBanManager = require('../managers/GuildBanManager');
 const GuildChannelManager = require('../managers/GuildChannelManager');
 const GuildEmojiManager = require('../managers/GuildEmojiManager');
@@ -42,12 +41,6 @@ const { discordSort, getSortableGroupTypes, resolvePartialEmoji } = require('../
 class Guild extends AnonymousGuild {
   constructor(client, data) {
     super(client, data, false);
-
-    /**
-     * A manager of the application commands belonging to this guild
-     * @type {GuildApplicationCommandManager}
-     */
-    this.commands = new GuildApplicationCommandManager(this);
 
     /**
      * A manager of the members belonging to this guild
@@ -175,7 +168,7 @@ class Guild extends AnonymousGuild {
 
     if ('large' in data) {
       /**
-       * Whether the guild is "large" (has more than {@link WebSocketOptions large_threshold} members, 50 by default)
+       * Whether the guild is "large" (has more than {@link WebSocketOptions large_threshold} members, 250 by default)
        * @type {boolean}
        */
       this.large = Boolean(data.large);

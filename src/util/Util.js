@@ -100,42 +100,6 @@ function resolvePartialEmoji(emoji) {
   return { id, name, animated: Boolean(animated) };
 }
 
-/**
- * Options used to make an error object.
- * @typedef {Object} MakeErrorOptions
- * @property {string} name Error type
- * @property {string} message Message for the error
- * @property {string} stack Stack for the error
- * @private
- */
-
-/**
- * Makes an Error from a plain info object.
- * @param {MakeErrorOptions} obj Error info
- * @returns {Error}
- * @private
- */
-function makeError(obj) {
-  const err = new Error(obj.message);
-  err.name = obj.name;
-  err.stack = obj.stack;
-  return err;
-}
-
-/**
- * Makes a plain error info object from an Error.
- * @param {Error} err Error to get info from
- * @returns {MakeErrorOptions}
- * @private
- */
-function makePlainError(err) {
-  return {
-    name: err.name,
-    message: err.message,
-    stack: err.stack,
-  };
-}
-
 const TextSortableGroupTypes = [
   ChannelType.GuildText,
   ChannelType.GuildAnnouncement,
@@ -352,7 +316,7 @@ function cleanContent(str, channel) {
           return user ? `@${user.displayName}` : match;
         }
         case '@&': {
-          if (channel.type === ChannelType.DM) return match;
+          if (!channel.guild) return match;
           const role = channel.guild.roles.cache.get(id);
           return role ? `@${role.name}` : match;
         }
@@ -516,8 +480,6 @@ module.exports = {
   flatten,
   parseEmoji,
   resolvePartialEmoji,
-  makeError,
-  makePlainError,
   getSortableGroupTypes,
   moveElementInArray,
   verifyString,

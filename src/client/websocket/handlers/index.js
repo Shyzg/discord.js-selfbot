@@ -50,6 +50,7 @@ const handlers = Object.fromEntries([
   ['PRESENCE_UPDATE', require('./PRESENCE_UPDATE')],
   ['RATE_LIMITED', require('./RATE_LIMITED')],
   ['READY', require('./READY')],
+  ['READY_SUPPLEMENTAL', require('./READY_SUPPLEMENTAL')],
   ['RESUMED', require('./RESUMED')],
   ['SOUNDBOARD_SOUNDS', require('./SOUNDBOARD_SOUNDS')],
   ['STAGE_INSTANCE_CREATE', require('./STAGE_INSTANCE_CREATE')],
