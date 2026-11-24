@@ -4,7 +4,11 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { inspect } = require('node:util');
-const { WebSocketManager: WSWebSocketManager, WebSocketShardEvents: WSEvents } = require('@discordjs/ws');
+const {
+  WebSocketManager: WSWebSocketManager,
+  WebSocketShard: WSWebSocketShard,
+  WebSocketShardEvents: WSEvents,
+} = require('@discordjs/ws');
 const { GatewayCloseCodes } = require('discord-api-types/v10');
 const { Client, Collection, Events, Status } = require('../src');
 const WebSocketShard = require('../src/client/websocket/WebSocketShard');
@@ -78,11 +82,12 @@ test('WebSocketManager understands @discordjs/ws v2 event arguments', async () =
   assert.deepEqual(reconnecting, []);
 });
 
-test('WebSocketManager keeps the token out of inspect output and releases it on destroy', async () => {
+test('WebSocketManager keeps the token out of inspect output and releases it on destroy', async t => {
   const token = 'FAKE.TOKEN.VALUE';
   const client = new Client({ intents: [] });
   client.token = token;
-  client.rest.get = () => Promise.reject(new Error('offline')); // connect() stops at the gateway fetch
+  // connect() stops where @discordjs/ws would open the socket
+  t.mock.method(WSWebSocketManager.prototype, 'connect', () => Promise.reject(new Error('offline')));
   await assert.rejects(client.ws.connect(), /offline/);
   assert.equal(client.ws._ws.token, token);
   assert.ok(!inspect(client.ws, { depth: 4 }).includes(token));
@@ -94,5 +99,68 @@ test('WebSocketManager keeps the token out of inspect output and releases it on 
   client.token = token;
   await assert.rejects(client.ws.connect(), /offline/);
   assert.equal(client.ws.destroyed, false);
+  await client.destroy();
+});
+
+test('re-logging in after destroy() clears old session info and emits clientReady again', async t => {
+  const client = new Client();
+  t.mock.method(WSWebSocketManager.prototype, 'connect', async () => {});
+  let readyCount = 0;
+  client.on(Events.ClientReady, () => readyCount++);
+
+  client.token = 'TOKEN.ONE.AAA';
+  await client.ws.connect();
+  client.ws.shards.get(0).sessionInfo = { sessionId: 'OLD_SESSION', sequence: 99 };
+  client.ws.shards.get(0).onReadyPacket({ guilds: [] });
+  client.ws.shards.get(0).checkReady();
+  assert.equal(readyCount, 1);
+  assert.ok(client.readyTimestamp);
+
+  await client.destroy();
+  assert.equal(client.readyTimestamp, null);
+  assert.equal(client.ws.status, Status.Idle);
+  assert.equal(client.ws.shards.get(0).sessionInfo, null);
+
+  client.token = 'TOKEN.TWO.BBB';
+  await client.ws.connect();
+  assert.equal(client.ws._ws.options.retrieveSessionInfo(0), null);
+  client.ws.shards.get(0).onReadyPacket({ guilds: [] });
+  client.ws.shards.get(0).checkReady();
+  assert.equal(readyCount, 2);
+  await client.destroy();
+});
+
+test('connect() never requests the bot-only /gateway/bot, and targets the web client gateway', async t => {
+  const client = new Client();
+  client.token = 'FAKE.TOKEN.VALUE';
+  const routes = [];
+  client.rest.get = async route => {
+    routes.push(route);
+    throw new Error('unexpected REST call');
+  };
+  let gateway;
+  t.mock.method(WSWebSocketManager.prototype, 'connect', async function connect() {
+    gateway = await this.fetchGatewayInformation();
+  });
+
+  await client.ws.connect();
+  assert.deepEqual(routes, []);
+  assert.equal(gateway.url, 'wss://gateway.discord.gg');
+  assert.equal(client.ws.gateway, 'wss://gateway.discord.gg/');
+  await client.destroy();
+});
+
+test('a gateway authentication failure (close 4004) rejects connect() with TokenInvalid', async t => {
+  // Take the error from a real @discordjs/ws shard, so the message the mapping relies on stays pinned.
+  const wsShard = new WSWebSocketShard({ options: {} }, 0);
+  let authError;
+  wsShard.on(WSEvents.Error, error => (authError = error));
+  await wsShard.onClose(GatewayCloseCodes.AuthenticationFailed);
+  assert.ok(authError);
+
+  const client = new Client();
+  client.token = 'FAKE.TOKEN.VALUE';
+  t.mock.method(WSWebSocketManager.prototype, 'connect', () => Promise.reject(authError));
+  await assert.rejects(client.ws.connect(), { code: 'TokenInvalid' });
   await client.destroy();
 });

@@ -315,7 +315,6 @@ const SeparatorComponent = require('../structures/SeparatorComponent');
 const StringSelectMenuBuilder = require('../structures/StringSelectMenuBuilder');
 const StringSelectMenuComponent = require('../structures/StringSelectMenuComponent');
 const TextDisplayComponent = require('../structures/TextDisplayComponent');
-const TextInputBuilder = require('../structures/TextInputBuilder');
 const TextInputComponent = require('../structures/TextInputComponent');
 const ThumbnailComponent = require('../structures/ThumbnailComponent');
 const UserSelectMenuBuilder = require('../structures/UserSelectMenuBuilder');
@@ -344,7 +343,6 @@ const ComponentTypeToBuilder = {
   [ComponentType.ActionRow]: ActionRowBuilder,
   [ComponentType.Button]: ButtonBuilder,
   [ComponentType.StringSelect]: StringSelectMenuBuilder,
-  [ComponentType.TextInput]: TextInputBuilder,
   [ComponentType.UserSelect]: UserSelectMenuBuilder,
   [ComponentType.RoleSelect]: RoleSelectMenuBuilder,
   [ComponentType.MentionableSelect]: MentionableSelectMenuBuilder,

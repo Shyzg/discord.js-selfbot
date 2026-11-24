@@ -4,8 +4,6 @@ const DjsErrorCodes = require('./ErrorCodes');
 
 const Messages = {
   [DjsErrorCodes.ClientInvalidOption]: (prop, must) => `The ${prop} option must be ${must}`,
-  [DjsErrorCodes.ClientMissingIntents]: 'Valid intents must be provided for the Client.',
-  [DjsErrorCodes.ClientNotReady]: action => `The client needs to be logged in to ${action}.`,
   [DjsErrorCodes.CaptchaRequired]: service =>
     `A captcha (${service}) is required to log in; provide a \`captcha\` handler to normalLogin.`,
   [DjsErrorCodes.MFARequired]: methods =>
@@ -13,19 +11,8 @@ const Messages = {
   [DjsErrorCodes.RemoteAuthFailed]: reason => `Remote (QR) authentication failed: ${reason}.`,
 
   [DjsErrorCodes.TokenInvalid]: 'An invalid token was provided.',
-  [DjsErrorCodes.TokenMissing]: 'Request to use token, but token was unavailable to the client.',
-  [DjsErrorCodes.ApplicationCommandPermissionsTokenMissing]:
-    'Editing application command permissions requires an OAuth2 bearer token, but none was provided.',
-
-  [DjsErrorCodes.WSCloseRequested]: 'WebSocket closed due to user request.',
-  [DjsErrorCodes.WSConnectionExists]: 'There is already an existing WebSocket connection.',
-  [DjsErrorCodes.WSNotOpen]: (data = 'data') => `WebSocket not open to send ${data}`,
-  [DjsErrorCodes.ManagerDestroyed]: 'Manager was destroyed.',
 
   [DjsErrorCodes.BitFieldInvalid]: bit => `Invalid bitfield flag or number: ${bit}.`,
-
-  [DjsErrorCodes.InvalidIntents]: 'Invalid intent provided for WebSocket intents.',
-  [DjsErrorCodes.DisallowedIntents]: 'Privileged intent provided is not enabled or whitelisted.',
 
   [DjsErrorCodes.ColorRange]: 'Color must be within the range 0 - 16777215 (0xFFFFFF).',
   [DjsErrorCodes.ColorConvert]: color => `Unable to convert "${color}" to a number.`,
@@ -33,19 +20,8 @@ const Messages = {
   [DjsErrorCodes.InviteOptionsMissingChannel]:
     'A valid guild channel must be provided when GuildScheduledEvent is EXTERNAL.',
 
-  [DjsErrorCodes.ButtonLabel]: 'MessageButton label must be a string',
-  [DjsErrorCodes.ButtonURL]: 'MessageButton URL must be a string',
-  [DjsErrorCodes.ButtonCustomId]: 'MessageButton customId must be a string',
-
-  [DjsErrorCodes.SelectMenuCustomId]: 'MessageSelectMenu customId must be a string',
-  [DjsErrorCodes.SelectMenuPlaceholder]: 'MessageSelectMenu placeholder must be a string',
-  [DjsErrorCodes.SelectOptionLabel]: 'MessageSelectOption label must be a string',
-  [DjsErrorCodes.SelectOptionValue]: 'MessageSelectOption value must be a string',
-  [DjsErrorCodes.SelectOptionDescription]: 'MessageSelectOption description must be a string',
-
   [DjsErrorCodes.FileNotFound]: file => `File could not be found: ${file}`,
 
-  [DjsErrorCodes.UserBannerNotFetched]: "You must fetch this user's banner before trying to generate its URL!",
   [DjsErrorCodes.UserNoDMChannel]: 'No DM Channel exists!',
 
   [DjsErrorCodes.VoiceNotStageChannel]: 'You are only allowed to do this in stage channels.',
@@ -56,16 +32,11 @@ const Messages = {
 
   [DjsErrorCodes.ReqResourceType]: 'The resource must be a string, Buffer or a valid file stream.',
 
-  [DjsErrorCodes.ImageFormat]: format => `Invalid image format: ${format}`,
-  [DjsErrorCodes.ImageSize]: size => `Invalid image size: ${size}`,
-
   [DjsErrorCodes.MessageBulkDeleteType]: 'The messages must be an Array, Collection, or number.',
   [DjsErrorCodes.MessageContentType]: 'Message content must be a string.',
   [DjsErrorCodes.MessageEmbedsUserAccount]: 'User accounts cannot send embeds; only bots and webhooks can.',
   [DjsErrorCodes.MessageNonceRequired]: 'Message nonce is required when enforceNonce is true.',
   [DjsErrorCodes.MessageNonceType]: 'Message nonce must be an integer or a string.',
-
-  [DjsErrorCodes.SplitMaxLen]: 'Chunk exceeds the max length and contains no split characters.',
 
   [DjsErrorCodes.BanResolveId]: (ban = false) => `Couldn't resolve the user id to ${ban ? 'ban' : 'unban'}.`,
   [DjsErrorCodes.FetchBanResolveId]: "Couldn't resolve the user id to fetch the ban.",
@@ -78,6 +49,8 @@ const Messages = {
   [DjsErrorCodes.GuildChannelUnowned]: "The fetched channel does not belong to this manager's guild.",
   [DjsErrorCodes.GuildOwned]: 'Guild is owned by the client.',
   [DjsErrorCodes.GuildMembersTimeout]: "Members didn't arrive in time.",
+  [DjsErrorCodes.GuildMembersMissingPermissions]:
+    'Fetching every member needs Manage Roles, Kick Members or Ban Members; use GuildMemberManager#fetchMemberList.',
   [DjsErrorCodes.GuildSoundboardSoundsTimeout]: "Soundboard sounds didn't arrive in time.",
   [DjsErrorCodes.GuildUncachedMe]: 'The client user as a member of this guild is uncached.',
   [DjsErrorCodes.ChannelNotCached]: 'Could not find the channel where this message came from in the cache!',
@@ -103,8 +76,6 @@ const Messages = {
   [DjsErrorCodes.EmojiManaged]: 'Emoji is managed and has no Author.',
   [DjsErrorCodes.MissingManageGuildExpressionsPermission]: guild =>
     `Client must have Create Guild Expressions or Manage Guild Expressions permission in guild ${guild} to see emoji authors.`,
-  [DjsErrorCodes.MissingManageEmojisAndStickersPermission]: guild =>
-    `Client must have Manage Emojis and Stickers permission in guild ${guild} to see emoji authors.`,
 
   [DjsErrorCodes.NotGuildSoundboardSound]: action =>
     `Soundboard sound is a default (non-guild) soundboard sound and can't be ${action}.`,
@@ -112,25 +83,11 @@ const Messages = {
 
   [DjsErrorCodes.ReactionResolveUser]: "Couldn't resolve the user id to remove from the reaction.",
 
-  [DjsErrorCodes.VanityURL]: 'This guild does not have the vanity URL feature enabled.',
-
   [DjsErrorCodes.InviteResolveCode]: 'Could not resolve the code to fetch the invite.',
 
   [DjsErrorCodes.InviteNotFound]: 'Could not find the requested invite.',
 
-  [DjsErrorCodes.DeleteGroupDMChannel]: "Bots don't have access to Group DM Channels and cannot delete them",
-  [DjsErrorCodes.FetchGroupDMChannel]: "Bots don't have access to Group DM Channels and cannot fetch them",
-
   [DjsErrorCodes.MemberFetchNonceLength]: 'Nonce length must not exceed 32 characters.',
-
-  [DjsErrorCodes.GlobalCommandPermissions]:
-    'Permissions for global commands may only be fetched or modified by providing a GuildResolvable ' +
-    "or from a guild's application command manager.",
-  [DjsErrorCodes.GuildUncachedEntityResolve]: type =>
-    `Cannot resolve ${type} from an arbitrary guild, provide an id instead`,
-
-  [DjsErrorCodes.InvalidMissingScopes]: 'At least one valid scope must be provided for the invite',
-  [DjsErrorCodes.InvalidScopesWithPermissions]: 'Permissions cannot be set without the bot scope.',
 
   [DjsErrorCodes.NotImplemented]: (what, name) => `Method ${what} not implemented on ${name}.`,
 

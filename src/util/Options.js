@@ -1,8 +1,7 @@
 'use strict';
 
-const { DefaultRestOptions, DefaultUserAgentAppendix } = require('@discordjs/rest');
+const { DefaultRestOptions } = require('@discordjs/rest');
 const { toSnakeCase } = require('./Transformers');
-const { version } = require('../../package.json');
 
 // TODO(ckohen): switch order of params so full manager is first and "type" is optional
 /**
@@ -31,8 +30,6 @@ const { version } = require('../../package.json');
  * @property {PresenceData} [presence={}] Presence data to use upon login
  * @property {IntentsResolvable} [intents] Unused by user accounts (which have no intents); accepted for
  * compatibility and ignored. Defaults to none.
- * @property {number} [waitGuildTimeout=15_000] Time in milliseconds that clients with the
- * {@link GatewayIntentBits.Guilds} gateway intent should wait for missing guilds to be received before being ready.
  * @property {SweeperOptions} [sweepers=this.DefaultSweeperSettings] Options for cache sweeping
  * @property {WebsocketOptions} [ws] Options for the WebSocket
  * @property {RESTOptions} [rest] Options for the REST manager
@@ -82,8 +79,8 @@ const { version } = require('../../package.json');
 /**
  * WebSocket options (these are left as snake_case to match the API)
  * @typedef {Object} WebsocketOptions
- * @property {number} [large_threshold=50] Number of members in a guild after which offline users will no longer be
- * sent in the initial guild member list, must be between 50 and 250
+ * @property {number} [large_threshold] Member count above which a user account stops receiving some events for
+ * guilds it has not subscribed to (25-250). Unset, the field is not sent and Discord's user default of 250 applies
  * @property {number} [version=10] The Discord gateway version to use <warn>Changing this can break the library;
  * only set this if you know what you are doing</warn>
  * @property {BuildStrategyFunction} [buildStrategy] Builds the strategy to use for sharding
@@ -95,21 +92,12 @@ const { version } = require('../../package.json');
  */
 class Options extends null {
   /**
-   * The default user agent appendix.
-   * @type {string}
-   * @memberof Options
-   * @private
-   */
-  static userAgentAppendix = `discord.js/${version} ${DefaultUserAgentAppendix}`.trimEnd();
-
-  /**
    * The default client options.
    * @returns {ClientOptions}
    */
   static createDefault() {
     return {
       closeTimeout: 5_000,
-      waitGuildTimeout: 15_000,
       makeCache: this.cacheWithLimits(this.DefaultMakeCacheSettings),
       partials: [],
       failIfNotExists: true,
@@ -117,13 +105,9 @@ class Options extends null {
       presence: {},
       sweepers: this.DefaultSweeperSettings,
       ws: {
-        large_threshold: 50,
         version: 10,
       },
-      rest: {
-        ...DefaultRestOptions,
-        userAgentAppendix: this.userAgentAppendix,
-      },
+      rest: { ...DefaultRestOptions },
       jsonTransformer: toSnakeCase,
     };
   }

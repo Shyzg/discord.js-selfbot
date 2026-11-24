@@ -301,17 +301,18 @@ class GuildManager extends CachedManager {
    * console.log(soundboardSounds.get('123456789012345678'));
    */
   async fetchSoundboardSounds({ guildIds, time = 10_000 }) {
-    this.client.ws.shards.get(0).send({
-      op: GatewayOpcodes.RequestSoundboardSounds,
-      d: {
-        guild_ids: guildIds,
-      },
-    });
+    if (!guildIds?.length) return new Collection();
 
     return new Promise((resolve, reject) => {
       const remainingGuildIds = new Set(guildIds);
 
       const fetchedSoundboardSounds = new Collection();
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.client.removeListener(Events.SoundboardSounds, handler);
+        this.client.decrementMaxListeners();
+      };
 
       const handler = (soundboardSounds, guild) => {
         timeout.refresh();
@@ -323,22 +324,30 @@ class GuildManager extends CachedManager {
         remainingGuildIds.delete(guild.id);
 
         if (remainingGuildIds.size === 0) {
-          clearTimeout(timeout);
-          this.client.removeListener(Events.SoundboardSounds, handler);
-          this.client.decrementMaxListeners();
-
+          cleanup();
           resolve(fetchedSoundboardSounds);
         }
       };
 
       const timeout = setTimeout(() => {
-        this.client.removeListener(Events.SoundboardSounds, handler);
-        this.client.decrementMaxListeners();
+        cleanup();
         reject(new DiscordjsError(ErrorCodes.GuildSoundboardSoundsTimeout));
       }, time).unref();
 
       this.client.incrementMaxListeners();
       this.client.on(Events.SoundboardSounds, handler);
+
+      try {
+        this.client.ws.shards.get(0).send({
+          op: GatewayOpcodes.RequestSoundboardSounds,
+          d: {
+            guild_ids: guildIds,
+          },
+        });
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
     });
   }
 

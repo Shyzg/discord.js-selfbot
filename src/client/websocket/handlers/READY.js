@@ -12,6 +12,15 @@ module.exports = (client, { d: data }, shard) => {
     client.users.cache.set(client.user.id, client.user);
   }
 
+  // DEDUPE_USER_OBJECTS: each user arrives once in `users`; the rest of READY (and READY_SUPPLEMENTAL) names them by id.
+  const users = new Map((data.users ?? []).map(user => [user.id, user]));
+  for (const user of users.values()) client.users._add(user);
+  // Open DMs and group DMs. Uncached, a new message in one of them would have no channel and be dropped.
+  for (const channel of data.private_channels ?? []) {
+    const recipients = channel.recipient_ids?.map(id => users.get(id) ?? { id }) ?? channel.recipients;
+    client.channels._add({ ...channel, recipients });
+  }
+
   for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;
     const cached = client.guilds._add(guild);

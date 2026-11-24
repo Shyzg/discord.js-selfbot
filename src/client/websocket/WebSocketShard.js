@@ -3,7 +3,6 @@
 const EventEmitter = require('node:events');
 const process = require('node:process');
 const { setTimeout, clearTimeout } = require('node:timers');
-const { GatewayIntentBits } = require('discord-api-types/v10');
 const Status = require('../../util/Status');
 const WebSocketShardEvents = require('../../util/WebSocketShardEvents');
 
@@ -185,30 +184,14 @@ class WebSocketShard extends EventEmitter {
       this.emit(WebSocketShardEvents.AllReady);
       return;
     }
-    const hasGuildsIntent = this.manager.client.options.intents.has(GatewayIntentBits.Guilds);
-    // Step 2. Create a timeout that will mark the shard as ready if there are still unavailable guilds
-    // * The timeout is 15 seconds by default
-    // * This can be optionally changed in the client options via the `waitGuildTimeout` option
-    // * a timeout time of zero will skip this timeout, which potentially could cause the Client to miss guilds.
-
-    const { waitGuildTimeout } = this.manager.client.options;
-
-    this.readyTimeout = setTimeout(
-      () => {
-        this.debug([
-          hasGuildsIntent
-            ? `Shard did not receive any guild packets in ${waitGuildTimeout} ms.`
-            : 'Shard will not receive anymore guild packets.',
-          `Unavailable guild count: ${this.expectedGuilds.size}`,
-        ]);
-
-        this.readyTimeout = null;
-        this.status = Status.Ready;
-
-        this.emit(WebSocketShardEvents.AllReady, this.expectedGuilds);
-      },
-      hasGuildsIntent ? waitGuildTimeout : 0,
-    ).unref();
+    // Step 2. Don't hold ready for unavailable guilds: for users they are outages or geo-restricted guilds that may
+    // never load, and any that do arrive later as GUILD_CREATE. Mark the shard ready on the next tick.
+    this.readyTimeout = setTimeout(() => {
+      this.debug(['Not waiting for unavailable guilds.', `Unavailable guild count: ${this.expectedGuilds.size}`]);
+      this.readyTimeout = null;
+      this.status = Status.Ready;
+      this.emit(WebSocketShardEvents.AllReady, this.expectedGuilds);
+    }, 0).unref();
   }
 
   /**

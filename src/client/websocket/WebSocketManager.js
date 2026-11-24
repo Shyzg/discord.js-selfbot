@@ -2,7 +2,7 @@
 
 const EventEmitter = require('node:events');
 const process = require('node:process');
-const { setImmediate } = require('node:timers');
+const { setImmediate, clearTimeout } = require('node:timers');
 const { Collection } = require('@discordjs/collection');
 const {
   WebSocketManager: WSWebSocketManager,
@@ -46,6 +46,14 @@ const UNRECOVERABLE_CLOSE_CODES = [
   GatewayCloseCodes.InvalidIntents,
   GatewayCloseCodes.DisallowedIntents,
 ];
+
+// The web client connects straight to this address and never calls the bot-only GET /gateway/bot, so neither do we.
+// This is the shape @discordjs/ws expects from that endpoint: one session, available to start.
+const GATEWAY_INFORMATION = {
+  url: 'wss://gateway.discord.gg',
+  shards: 1,
+  session_start_limit: { total: 1, remaining: 1, reset_after: 0, max_concurrency: 1 },
+};
 
 const reasonIsDeprecated = 'the reason property is deprecated, use the code property to determine the reason';
 let deprecationEmittedForInvalidSessionEvent = false;
@@ -164,28 +172,19 @@ class WebSocketManager extends EventEmitter {
         compression: zlib ? CompressionMethod.ZlibSync : null,
       };
       // Spoof the web-client IDENTIFY (properties here, capabilities/client_state via the shard-send patch).
-      wsOptions.identifyProperties = require('../../util/UserProperties').superProperties;
+      wsOptions.identifyProperties = this.client._userProperties.superProperties;
       patchUserIdentify();
       if (ws.buildIdentifyThrottler) wsOptions.buildIdentifyThrottler = ws.buildIdentifyThrottler;
       if (ws.buildStrategy) wsOptions.buildStrategy = ws.buildStrategy;
       this._ws = new WSWebSocketManager(wsOptions);
       // setToken keeps the token in a private field instead of the inspectable options object
       this._ws.setToken(this.client.token);
+      // Every gateway lookup in @discordjs/ws (connect, shard URL, identify throttle) goes through this method.
+      this._ws.fetchGatewayInformation = async () => GATEWAY_INFORMATION;
       this.attachEvents();
     }
 
-    const {
-      url: gatewayURL,
-      shards: recommendedShards,
-      session_start_limit: sessionStartLimit,
-    } = await this._ws.fetchGatewayInformation().catch(error => {
-      throw error.status === 401 ? invalidToken : error;
-    });
-
-    const { total, remaining } = sessionStartLimit;
-    this.debug(['Fetched Gateway Information', `URL: ${gatewayURL}`, `Recommended Shards: ${recommendedShards}`]);
-    this.debug(['Session Limit Information', `Total: ${total}`, `Remaining: ${remaining}`]);
-    this.gateway = `${gatewayURL}/`;
+    this.gateway = `${GATEWAY_INFORMATION.url}/`;
 
     this.client.options.shardCount = await this._ws.getShardCount();
     this.client.options.shards = await this._ws.getShardIds();
@@ -207,10 +206,15 @@ class WebSocketManager extends EventEmitter {
           this.checkShardsReady();
         });
         shard.status = Status.Connecting;
+      } else {
+        this.shards.get(id).status = Status.Connecting;
       }
     }
 
-    await this._ws.connect();
+    await this._ws.connect().catch(error => {
+      // With no /gateway/bot request to reject it early, a bad token surfaces as the gateway closing with 4004.
+      throw error.message === 'Authentication failed' ? invalidToken : error;
+    });
 
     this.shards.forEach(shard => {
       if (shard.listenerCount(WebSocketShardEvents.InvalidSession) > 0 && !deprecationEmittedForInvalidSessionEvent) {
@@ -327,6 +331,7 @@ class WebSocketManager extends EventEmitter {
    * @private
    */
   broadcast(packet) {
+    if (!this._ws) return;
     for (const shardId of this.shards.keys()) this._ws.send(shardId, packet);
   }
 
@@ -340,8 +345,20 @@ class WebSocketManager extends EventEmitter {
     this.debug([Object.assign(new Error(), { name: 'Manager was destroyed:' }).stack]);
     this.destroyed = true;
     await this._ws?.destroy({ code: CloseCodes.Normal, reason: 'Manager was destroyed' });
-    // Release the gateway manager, and the token it holds
+    // Release the gateway manager, token, and stale session state so a later login() starts cleanly
     this._ws = null;
+    this.status = Status.Idle;
+    this.packetQueue.length = 0;
+    for (const shard of this.shards.values()) {
+      if (shard.readyTimeout) {
+        clearTimeout(shard.readyTimeout);
+        shard.readyTimeout = null;
+      }
+      shard.sessionInfo = null;
+      shard.expectedGuilds = null;
+      shard.closeSequence = 0;
+      shard.status = Status.Disconnected;
+    }
   }
 
   /**

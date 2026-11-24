@@ -77,3 +77,28 @@ test('passkeyLogin runs conditional start -> finish and returns the token', asyn
   assert.equal(credential.id, 'CRED');
   assert.equal(JSON.parse(Buffer.from(credential.response.clientDataJSON, 'base64url').toString()).challenge, 'CH');
 });
+
+test('passkeyLogin rejects with TokenInvalid instead of falling back to DISCORD_TOKEN when finish omits token', async t => {
+  const prev = process.env.DISCORD_TOKEN;
+  process.env.DISCORD_TOKEN = 'ENV.ACCOUNT.TOKEN';
+  t.after(() => {
+    if (prev === undefined) delete process.env.DISCORD_TOKEN;
+    else process.env.DISCORD_TOKEN = prev;
+  });
+  const { keyValue } = p256KeyValue();
+  const client = new Client();
+  let loginCalled = false;
+  client.login = async () => {
+    loginCalled = true;
+  };
+  client.rest.post = async route =>
+    route === '/auth/conditional/start'
+      ? { challenge: JSON.stringify({ publicKey: { challenge: 'CH', rpId: 'discord.com' } }), ticket: 'TK' }
+      : {};
+  await assert.rejects(
+    () => client.passkeyLogin({ credentialId: 'b64.CRED', privateKey: keyValue, userHandle: 'UH' }),
+    { code: 'TokenInvalid' },
+  );
+  assert.equal(loginCalled, false);
+  await client.destroy();
+});

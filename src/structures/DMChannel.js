@@ -122,8 +122,6 @@ class DMChannel extends BaseChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  createMessageComponentCollector() {}
-  awaitMessageComponent() {}
   // Doesn't work on DM channels; bulkDelete() {}
   // Doesn't work on DM channels; fetchWebhooks() {}
   // Doesn't work on DM channels; createWebhook() {}

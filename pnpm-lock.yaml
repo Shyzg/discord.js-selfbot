@@ -32,9 +32,6 @@ importers:
       discord-api-types:
         specifier: ^0.38.60
         version: 0.38.60
-      fast-deep-equal:
-        specifier: 3.1.3
-        version: 3.1.3
       lodash.snakecase:
         specifier: 4.1.1
         version: 4.1.1
@@ -47,9 +44,6 @@ importers:
       qr:
         specifier: ^0.7.2
         version: 0.7.2
-      tslib:
-        specifier: ^2.9.1
-        version: 2.9.1
     devDependencies:
       '@biomejs/biome':
         specifier: 2.6.8

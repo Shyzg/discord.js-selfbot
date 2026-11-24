@@ -1,6 +1,6 @@
 'use strict';
 
-const isEqual = require('fast-deep-equal');
+const { isDeepStrictEqual: isEqual } = require('node:util');
 
 /**
  * Represents a component
