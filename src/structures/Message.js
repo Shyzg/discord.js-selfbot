@@ -22,7 +22,7 @@ const { Sticker } = require('./Sticker');
 const { DiscordjsError, ErrorCodes } = require('../errors');
 const ReactionManager = require('../managers/ReactionManager');
 const { createComponent, findComponentByCustomId } = require('../util/Components');
-const { NonSystemMessageTypes, MaxBulkDeletableMessageAge, UndeletableMessageTypes } = require('../util/Constants');
+const { NonSystemMessageTypes, UndeletableMessageTypes } = require('../util/Constants');
 const MessageFlagsBitField = require('../util/MessageFlagsBitField');
 const PermissionsBitField = require('../util/PermissionsBitField');
 const { _transformAPIMessageInteractionMetadata } = require('../util/Transformers.js');
@@ -716,24 +716,6 @@ class Message extends Base {
     return (
       (this.type !== MessageType.AutoModerationAction && this.author.id === this.client.user.id) ||
       (permissions.has(PermissionFlagsBits.ManageMessages, false) && !this.guild.members.me.isCommunicationDisabled())
-    );
-  }
-
-  /**
-   * Whether the message is bulk deletable by the client user
-   * @type {boolean}
-   * @readonly
-   * @example
-   * // Filter for bulk deletable messages
-   * channel.bulkDelete(messages.filter(message => message.bulkDeletable));
-   */
-  get bulkDeletable() {
-    return (
-      (this.inGuild() &&
-        Date.now() - this.createdTimestamp < MaxBulkDeletableMessageAge &&
-        this.deletable &&
-        this.channel?.permissionsFor(this.client.user).has(PermissionFlagsBits.ManageMessages, false)) ??
-      false
     );
   }
 

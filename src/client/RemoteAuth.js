@@ -1,8 +1,8 @@
 'use strict';
 
-const { generateKeyPairSync, privateDecrypt, constants } = require('node:crypto');
+const { createHash, generateKeyPairSync, privateDecrypt, constants } = require('node:crypto');
 const { Buffer } = require('node:buffer');
-const { setInterval, clearInterval } = require('node:timers');
+const { setInterval, clearInterval, setTimeout, clearTimeout } = require('node:timers');
 const { DiscordjsError, ErrorCodes } = require('../errors');
 const { USER_AGENT } = require('../util/UserProperties');
 
@@ -19,9 +19,13 @@ class RemoteAuth {
     this.client = client;
     const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
     this.privateKey = privateKey;
-    this.encodedPublicKey = publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+    const spki = publicKey.export({ type: 'spki', format: 'der' });
+    this.encodedPublicKey = spki.toString('base64');
+    this.fingerprint = createHash('sha256').update(spki).digest('base64url');
     this.ws = null;
     this.heartbeat = null;
+    this.timeout = null;
+    this.heartbeatAcked = true;
     this.loggingIn = false;
   }
 
@@ -70,14 +74,34 @@ class RemoteAuth {
   async _handle(message, { onQRCode, onUserData, resolve, fail }) {
     switch (message.op) {
       case 'hello':
-        this.heartbeat = setInterval(() => this._send({ op: 'heartbeat' }), message.heartbeat_interval);
+        clearInterval(this.heartbeat);
+        clearTimeout(this.timeout);
+        this.heartbeatAcked = true;
+        this.heartbeat = setInterval(() => {
+          if (!this.heartbeatAcked) {
+            fail('gateway heartbeat timed out');
+            return;
+          }
+          this.heartbeatAcked = false;
+          this._send({ op: 'heartbeat' });
+        }, message.heartbeat_interval);
+        if (message.timeout_ms) {
+          this.timeout = setTimeout(() => fail('remote auth session timed out'), message.timeout_ms);
+        }
         this._send({ op: 'init', encoded_public_key: this.encodedPublicKey });
+        break;
+      case 'heartbeat_ack':
+        this.heartbeatAcked = true;
         break;
       case 'nonce_proof':
         // The proof is the decrypted nonce itself, base64url-encoded (not a hash of it).
         this._send({ op: 'nonce_proof', nonce: this._decrypt(message.encrypted_nonce).toString('base64url') });
         break;
       case 'pending_remote_init': {
+        if (message.fingerprint !== this.fingerprint) {
+          fail('public key fingerprint mismatch');
+          break;
+        }
         const url = `https://discord.com/ra/${message.fingerprint}`;
         if (onQRCode) {
           await onQRCode(url);
@@ -93,6 +117,8 @@ class RemoteAuth {
         break;
       case 'pending_login': {
         this.loggingIn = true;
+        clearInterval(this.heartbeat);
+        clearTimeout(this.timeout);
         const { encrypted_token: encryptedToken } = await this.client.rest.post('/users/@me/remote-auth/login', {
           body: { ticket: message.ticket },
           auth: false,
@@ -129,7 +155,7 @@ class RemoteAuth {
   // shortcut: user payload layout is `id:discriminator:avatar:username`; revisit if Discord changes the format.
   _parseUser(payload) {
     const [id, discriminator, avatar, username] = payload.split(':');
-    return { id, username, discriminator, avatar, raw: payload };
+    return { id, username, discriminator, avatar: avatar === '0' ? null : avatar, raw: payload };
   }
 
   /**
@@ -138,6 +164,7 @@ class RemoteAuth {
    */
   destroy() {
     clearInterval(this.heartbeat);
+    clearTimeout(this.timeout);
     try {
       this.ws?.close();
     } catch {

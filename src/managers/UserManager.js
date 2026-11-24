@@ -66,7 +66,7 @@ class UserManager extends CachedManager {
       if (dmChannel && !dmChannel.partial) return dmChannel;
     }
 
-    const data = await this.client.rest.post(Routes.userChannels(), { body: { recipient_id: id } });
+    const data = await this.client.rest.post(Routes.userChannels(), { body: { recipients: [id] } });
     return this.client.channels._add(data, null, { cache });
   }
 

@@ -1,13 +1,13 @@
 'use strict';
 
-// op-14 member-list fetch: collects members from GUILD_MEMBER_LIST_UPDATE ops (skipping group headers).
+// op-37 member-list fetch: collects members from GUILD_MEMBER_LIST_UPDATE ops (skipping group headers).
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { GatewayOpcodes, PermissionFlagsBits } = require('discord-api-types/v10');
 const { Client } = require('../src');
 const Events = require('../src/util/Events');
 
-test('fetchMemberList collects members from the gateway member list', async () => {
+test('fetchMemberList collects members from the gateway member list via op 37', async () => {
   const client = new Client();
   const sent = [];
   client.ws.shards.set(0, { send: payload => sent.push(payload) });
@@ -16,10 +16,9 @@ test('fetchMemberList collects members from the gateway member list', async () =
 
   const promise = guild.members.fetchMemberList('123456789012345678', { limit: 2, time: 2000 });
 
-  // the op-14 request was sent to the gateway
-  assert.equal(sent[0]?.op, 14);
-  assert.equal(sent[0]?.d?.guild_id, '1');
-  assert.ok(sent[0]?.d?.channels['123456789012345678']);
+  // the op-37 Guild Subscriptions Bulk request was sent to the gateway
+  assert.equal(sent[0]?.op, 37);
+  assert.deepEqual(sent[0]?.d?.subscriptions?.['1']?.channels?.['123456789012345678'], [[0, 99]]);
 
   // simulate the gateway member-list response (members + a group header that must be skipped)
   client.emit(Events.Raw, {
@@ -65,7 +64,7 @@ test('fetchMemberList collects members from the gateway member list', async () =
   assert.equal(capped.size, 1);
 });
 
-test('fetchMemberList requires a finite positive limit (op-14 is a window, not a bulk fetch)', () => {
+test('fetchMemberList requires a finite positive limit (op-37 is a window, not a bulk fetch)', () => {
   const client = new Client();
   const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
   assert.throws(() => guild.members.fetchMemberList('123456789012345678'), /limit option must be/);
@@ -76,39 +75,46 @@ test('fetchMemberList requires a finite positive limit (op-14 is a window, not a
   );
 });
 
-test('fetchMemberList steps op-14 ranges above 300 one batch at a time and cleans up if disconnected', async () => {
+test('fetchMemberList steps one 100-slot range at a time, handles group headers past limit, and cleans up on error', async () => {
   const client = new Client();
   const sent = [];
   client.ws.shards.set(0, { send: payload => sent.push(payload) });
   const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
   guild.shardId = 0;
 
-  const promise = guild.members.fetchMemberList('123456789012345678', { limit: 350, time: 2000 });
-  // Only the first 3 ranges go out immediately (does not overwrite itself with later frames).
+  // Group headers eat 2 slots in [0, 99], so limit: 100 must advance into [100, 199] to reach 100 members.
+  const promise = guild.members.fetchMemberList('123456789012345678', { limit: 100, time: 2000 });
   assert.equal(sent.length, 1);
-  assert.deepEqual(sent[0].d.channels['123456789012345678'], [
-    [0, 99],
-    [100, 199],
-    [200, 299],
-  ]);
+  assert.deepEqual(sent[0].d.subscriptions['1'].channels['123456789012345678'], [[0, 99]]);
 
-  const batch1 = Array.from({ length: 300 }, (_, i) => ({
-    member: { user: { id: `u${i}`, username: `u${i}` }, roles: [] },
-  }));
+  const batch1 = [
+    { group: { id: 'admins', count: 2 } },
+    { group: { id: 'online', count: 96 } },
+    ...Array.from({ length: 98 }, (_, i) => ({
+      member: { user: { id: `u${i}`, username: `u${i}` }, roles: [] },
+    })),
+  ];
   client.emit(Events.Raw, {
     t: 'GUILD_MEMBER_LIST_UPDATE',
     d: { guild_id: '1', ops: [{ op: 'SYNC', items: batch1 }] },
   });
 
-  // After SYNC 1 arrives, the next window goes out with [0, 99] anchored plus [300, 399].
+  // After SYNC 1 arrives, the next window anchors [0, 99] and requests [100, 199].
   assert.equal(sent.length, 2);
-  assert.deepEqual(sent[1].d.channels['123456789012345678'], [
+  assert.deepEqual(sent[1].d.subscriptions['1'].channels['123456789012345678'], [
     [0, 99],
-    [300, 399],
+    [100, 199],
   ]);
 
-  const batch2 = Array.from({ length: 50 }, (_, i) => ({
-    member: { user: { id: `u${300 + i}`, username: `u${300 + i}` }, roles: [] },
+  // Re-echoing [0, 99] adds 0 new members and must NOT prematurely advance to [200, 299].
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: { guild_id: '1', ops: [{ op: 'SYNC', items: batch1 }] },
+  });
+  assert.equal(sent.length, 2);
+
+  const batch2 = Array.from({ length: 2 }, (_, i) => ({
+    member: { user: { id: `u${98 + i}`, username: `u${98 + i}` }, roles: [] },
   }));
   client.emit(Events.Raw, {
     t: 'GUILD_MEMBER_LIST_UPDATE',
@@ -116,7 +122,7 @@ test('fetchMemberList steps op-14 ranges above 300 one batch at a time and clean
   });
 
   const members = await promise;
-  assert.equal(members.size, 350);
+  assert.equal(members.size, 100);
 
   // Disconnected shard rejects without leaking the Raw listener.
   const listenersBefore = client.listenerCount(Events.Raw);
@@ -127,6 +133,42 @@ test('fetchMemberList steps op-14 ranges above 300 one batch at a time and clean
   });
   await assert.rejects(() => guild.members.fetchMemberList('123456789012345678', { limit: 10 }), /socket closed/);
   assert.equal(client.listenerCount(Events.Raw), listenersBefore);
+});
+
+test('concurrent fetchMemberList calls on the same guild are serialized', async () => {
+  const client = new Client();
+  const sent = [];
+  client.ws.shards.set(0, { send: payload => sent.push(payload) });
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
+  guild.shardId = 0;
+
+  const first = guild.members.fetchMemberList('111111111111111111', { limit: 1, time: 2000 });
+  const second = guild.members.fetchMemberList('222222222222222222', { limit: 1, time: 2000 });
+
+  // Only the first call has subscribed so far.
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0].d.subscriptions['1'].channels['111111111111111111']);
+
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: { guild_id: '1', ops: [{ op: 'SYNC', items: [{ member: { user: { id: 'u1', username: 'a' }, roles: [] } }] }] },
+  });
+  const firstMembers = await first;
+  assert.deepEqual([...firstMembers.keys()], ['u1']);
+
+  // First call cleared its channel subscription, then the second call subscribed to channel 2.
+  assert.equal(sent.length, 3);
+  assert.deepEqual(sent[1].d.subscriptions['1'].channels, {});
+  assert.ok(sent[2].d.subscriptions['1'].channels['222222222222222222']);
+
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: { guild_id: '1', ops: [{ op: 'SYNC', items: [{ member: { user: { id: 'u2', username: 'b' }, roles: [] } }] }] },
+  });
+  const secondMembers = await second;
+  assert.deepEqual([...secondMembers.keys()], ['u2']);
+  assert.equal(sent.length, 4);
+  assert.deepEqual(sent[3].d.subscriptions['1'].channels, {});
 });
 
 test('fetchMemberList rejects when no member list arrives (the list always contains you)', async () => {

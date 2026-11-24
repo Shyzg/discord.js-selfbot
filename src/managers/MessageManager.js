@@ -5,7 +5,7 @@ const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
-const { DiscordjsTypeError, ErrorCodes } = require('../errors');
+const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const { Message } = require('../structures/Message');
 const MessagePayload = require('../structures/MessagePayload');
 const { MakeCacheOverrideSymbol } = require('../util/Symbols');
@@ -107,7 +107,12 @@ class MessageManager extends CachedManager {
       if (existing && !existing.partial) return existing;
     }
 
-    const data = await this.client.rest.get(Routes.channelMessage(this.channel.id, message));
+    // Discord blocks GET /channels/:id/messages/:id for user tokens; query around the target id instead.
+    const messages = await this.client.rest.get(Routes.channelMessages(this.channel.id), {
+      query: makeURLSearchParams({ around: message, limit: 1 }),
+    });
+    const data = messages.find(item => item.id === message);
+    if (!data) throw new DiscordjsError(ErrorCodes.MessageNotFound);
     return this._add(data, cache);
   }
 

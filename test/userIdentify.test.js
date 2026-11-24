@@ -4,18 +4,24 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { setImmediate } = require('node:timers/promises');
-const { WebSocketShard } = require('@discordjs/ws');
+const { WebSocketShard, WebSocketShardEvents } = require('@discordjs/ws');
 const { GatewayOpcodes } = require('discord-api-types/v10');
-const { applyUserIdentify, CAPABILITIES, superProperties } = require('../src/util/UserProperties');
-const { isUserIdentify, patchUserIdentify } = require('../src/client/websocket/userIdentify');
+const { Client } = require('../src');
+const { applyUserIdentify, CAPABILITIES, createUserProperties } = require('../src/util/UserProperties');
+const {
+  isUserIdentify,
+  patchUserIdentify,
+  TOO_MANY_SESSIONS_CLOSE_CODE,
+} = require('../src/client/websocket/userIdentify');
 
 test('CAPABILITIES keeps cleared the bits whose events this library cannot apply correctly', () => {
-  // AUTH_TOKEN_REFRESH, DEBOUNCE_MESSAGE_REACTIONS, PASSIVE_GUILD_UPDATE_V2
-  for (const bit of [8, 13, 14]) assert.equal(CAPABILITIES & (1 << bit), 0, `bit ${bit} must stay cleared`);
+  // AUTH_TOKEN_REFRESH, DEBOUNCE_MESSAGE_REACTIONS, PASSIVE_GUILD_UPDATE_V2, CHANNEL_OBFUSCATION
+  for (const bit of [8, 13, 14, 15]) assert.equal(CAPABILITIES & (1 << bit), 0, `bit ${bit} must stay cleared`);
 });
 
 test('a real @discordjs/ws shard sends the patched IDENTIFY (fails if ws internals change)', async () => {
   patchUserIdentify();
+  const { superProperties } = createUserProperties();
   const strategy = {
     options: { token: 'T', identifyProperties: superProperties, intents: undefined, shardCount: 1, compression: null },
     waitForIdentify: async () => {},
@@ -56,4 +62,60 @@ test('isUserIdentify fires only for a user-mode IDENTIFY', () => {
     isUserIdentify({ op: GatewayOpcodes.Heartbeat, d: {} }, { intents: undefined, identifyProperties: {} }),
     false,
   );
+});
+
+test('Client#login defaults IDENTIFY presence to web-client unknown/since:0 without mutating options.presence', async () => {
+  const defaultClient = new Client();
+  assert.deepEqual(defaultClient.options.presence, {});
+  defaultClient.ws.connect = async () => {};
+  await defaultClient.login('token');
+  assert.deepEqual(defaultClient.options.ws.presence, {
+    activities: [],
+    status: 'unknown',
+    since: 0,
+    afk: false,
+  });
+
+  const customClient = new Client({ presence: { status: 'dnd' } });
+  customClient.ws.connect = async () => {};
+  await customClient.login('token');
+  assert.deepEqual(customClient.options.ws.presence, {
+    activities: [],
+    status: 'dnd',
+    since: 0,
+    afk: false,
+  });
+});
+
+test('user shard stops reconnecting on close code 4015 (Too Many Sessions)', async () => {
+  patchUserIdentify();
+  const { superProperties } = createUserProperties();
+  const shard = new WebSocketShard(
+    {
+      options: {
+        token: 'T',
+        identifyProperties: superProperties,
+        intents: undefined,
+        shardCount: 1,
+        compression: null,
+      },
+      updateSessionInfo: async () => {},
+    },
+    0,
+  );
+  const events = [];
+  let destroyOptions;
+  shard.on(WebSocketShardEvents.Closed, code => events.push(['closed', code]));
+  shard.on(WebSocketShardEvents.Error, err => events.push(['error', err.message]));
+  shard.destroy = async options => {
+    destroyOptions = options;
+  };
+
+  await shard.onClose(TOO_MANY_SESSIONS_CLOSE_CODE);
+  assert.deepEqual(events, [
+    ['closed', 4015],
+    ['error', 'Too many sessions'],
+  ]);
+  assert.deepEqual(destroyOptions, { code: 4015 });
+  assert.equal('recover' in destroyOptions, false);
 });

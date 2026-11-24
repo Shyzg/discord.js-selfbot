@@ -30,7 +30,10 @@ class ClientUser extends User {
       this.mfaEnabled ??= null;
     }
 
-    if ('token' in data) this.client.token = data.token;
+    if ('token' in data) {
+      this.client.token = data.token;
+      this.client.rest.setToken(data.token);
+    }
   }
 
   /**
@@ -48,6 +51,7 @@ class ClientUser extends User {
    * @property {string} [username] The new username
    * @property {?(BufferResolvable|Base64Resolvable)} [avatar] The new avatar
    * @property {?(BufferResolvable|Base64Resolvable)} [banner] The new banner
+   * @property {string} [password] Current password (required by Discord when changing username)
    */
 
   /**
@@ -55,12 +59,13 @@ class ClientUser extends User {
    * @param {ClientUserEditOptions} options The options to provide
    * @returns {Promise<ClientUser>}
    */
-  async edit({ username, avatar, banner }) {
+  async edit({ username, avatar, banner, password }) {
     const data = await this.client.rest.patch(Routes.user(), {
       body: {
         username,
         avatar: avatar && (await resolveImage(avatar)),
         banner: banner && (await resolveImage(banner)),
+        password,
       },
     });
 
@@ -73,15 +78,16 @@ class ClientUser extends User {
    * <info>Changing usernames in Discord is heavily rate limited, with only 2 requests
    * every hour. Use this sparingly!</info>
    * @param {string} username The new username
+   * @param {string} [password] Current account password (required by Discord for user accounts)
    * @returns {Promise<ClientUser>}
    * @example
    * // Set username
-   * client.user.setUsername('discordjs')
+   * client.user.setUsername('discordjs', 'current-password')
    *   .then(user => console.log(`My new username is ${user.username}`))
    *   .catch(console.error);
    */
-  setUsername(username) {
-    return this.edit({ username });
+  setUsername(username, password) {
+    return this.edit({ username, password });
   }
 
   /**

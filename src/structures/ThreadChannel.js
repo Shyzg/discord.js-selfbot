@@ -1,8 +1,7 @@
 'use strict';
 
-const { DiscordAPIError } = require('@discordjs/rest');
 const { lazy } = require('@discordjs/util');
-const { RESTJSONErrorCodes, ChannelFlags, ChannelType, PermissionFlagsBits, Routes } = require('discord-api-types/v10');
+const { ChannelFlags, ChannelType, PermissionFlagsBits, Routes } = require('discord-api-types/v10');
 const { BaseChannel } = require('./BaseChannel');
 const getThreadOnlyChannel = lazy(() => require('./ThreadOnlyChannel'));
 const TextBasedChannel = require('./interfaces/TextBasedChannel');
@@ -282,31 +281,6 @@ class ThreadChannel extends BaseChannel {
    */
   permissionsFor(memberOrRole, checkAdmin) {
     return this.parent?.permissionsFor(memberOrRole, checkAdmin) ?? null;
-  }
-
-  /**
-   * Options used to fetch a thread owner.
-   * @typedef {BaseFetchOptions} FetchThreadOwnerOptions
-   * @property {boolean} [withMember] Whether to also return the guild member associated with this thread member
-   */
-
-  /**
-   * Fetches the owner of this thread. If the thread member object isn't needed,
-   * use {@link ThreadChannel#ownerId} instead.
-   * @param {FetchThreadOwnerOptions} [options] Options for fetching the owner
-   * @returns {Promise<?ThreadMember>}
-   */
-  async fetchOwner(options) {
-    // TODO: Remove that catch in the next major version
-    const member = await this.members._fetchSingle({ ...options, member: this.ownerId }).catch(error => {
-      if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownMember) {
-        return null;
-      }
-
-      throw error;
-    });
-
-    return member;
   }
 
   /**
@@ -599,7 +573,6 @@ class ThreadChannel extends BaseChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  bulkDelete() {}
   // Doesn't work on Thread channels; setRateLimitPerUser() {}
   // Doesn't work on Thread channels; setNSFW() {}
 }

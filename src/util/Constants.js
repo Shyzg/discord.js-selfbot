@@ -3,12 +3,6 @@
 const { ChannelType, MessageType, ComponentType, ImageFormat, StickerFormatType } = require('discord-api-types/v10');
 
 /**
- * Max bulk deletable message age
- * @typedef {number} MaxBulkDeletableMessageAge
- */
-exports.MaxBulkDeletableMessageAge = 1_209_600_000;
-
-/**
  * The name of an item to be swept in Sweepers
  * * `autoModerationRules`
  * * `bans`
@@ -267,7 +261,6 @@ exports.HolographicStyle = {
 
 /**
  * @typedef {Object} Constants Constants that can be used in an enum or object-like way.
- * @property {number} MaxBulkDeletableMessageAge Max bulk deletable message age
  * @property {SweeperKey[]} SweeperKeys The possible names of items that can be swept in sweepers
  * @property {NonSystemMessageTypes} NonSystemMessageTypes The types of messages that are not deemed a system type
  * @property {TextBasedChannelTypes} TextBasedChannelTypes The types of channels that are text-based

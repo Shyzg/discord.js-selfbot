@@ -1083,7 +1083,7 @@ export class ClientUser extends User {
   public setBanner(banner: BufferResolvable | Base64Resolvable | null): Promise<this>;
   public setPresence(data: PresenceData): ClientPresence;
   public setStatus(status: PresenceStatusData, shardId?: number | readonly number[]): ClientPresence;
-  public setUsername(username: string): Promise<this>;
+  public setUsername(username: string, password?: string): Promise<this>;
 }
 
 export class Options extends null {
@@ -1186,7 +1186,7 @@ export abstract class Collector<Key, Value, Extras extends unknown[] = []> exten
 export interface DMChannel
   extends Omit<
     TextBasedChannelFields<false, true>,
-    'bulkDelete' | 'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
+    'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
   > {}
 export class DMChannel extends BaseChannel {
   private constructor(client: Client<true>, data?: RawDMChannelData);
@@ -1852,7 +1852,6 @@ export class Message<InGuild extends boolean = boolean> extends Base {
   public applicationId: Snowflake | null;
   public attachments: Collection<Snowflake, Attachment>;
   public author: User;
-  public get bulkDeletable(): boolean;
   public get channel(): If<InGuild, GuildTextBasedChannel, TextBasedChannel>;
   public channelId: Snowflake;
   public get cleanContent(): string;
@@ -2129,7 +2128,7 @@ export class OAuth2Guild extends BaseGuild {
 export interface PartialGroupDMChannel
   extends Omit<
     TextBasedChannelFields<false, false>,
-    'bulkDelete' | 'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
+    'fetchWebhooks' | 'createWebhook' | 'setRateLimitPerUser' | 'setNSFW'
   > {}
 export class PartialGroupDMChannel extends BaseChannel {
   private constructor(client: Client<true>, data: RawPartialGroupDMChannelData);
@@ -2168,14 +2167,7 @@ export interface DefaultReactionEmoji {
 export interface ThreadOnlyChannel
   extends Omit<
     TextBasedChannelFields,
-    | 'send'
-    | 'lastMessage'
-    | 'lastPinAt'
-    | 'bulkDelete'
-    | 'sendTyping'
-    | 'createMessageCollector'
-    | 'awaitMessages'
-    | 'messages'
+    'send' | 'lastMessage' | 'lastPinAt' | 'sendTyping' | 'createMessageCollector' | 'awaitMessages' | 'messages'
   > {}
 export abstract class ThreadOnlyChannel extends GuildChannel {
   public type: ChannelType.GuildForum | ChannelType.GuildMedia;
@@ -2720,7 +2712,6 @@ export class ThreadChannel<ThreadOnly extends boolean = boolean> extends BaseCha
     memberOrRole: GuildMemberResolvable | RoleResolvable,
     checkAdmin?: boolean,
   ): Readonly<PermissionsBitField> | null;
-  public fetchOwner(options?: FetchThreadOwnerOptions): Promise<ThreadMember | null>;
   public fetchStarterMessage(options?: BaseFetchOptions): Promise<Message<true> | null>;
   public setArchived(archived?: boolean, reason?: string): Promise<this>;
   public setAutoArchiveDuration(autoArchiveDuration: ThreadAutoArchiveDuration, reason?: string): Promise<this>;
@@ -3028,7 +3019,6 @@ export class VoiceState extends Base {
   public setRequestToSpeak(request?: boolean): Promise<this>;
   public setSuppressed(suppressed?: boolean): Promise<this>;
   public edit(options: VoiceStateEditOptions): Promise<this>;
-  public fetch(force?: boolean): Promise<VoiceState>;
 }
 
 // tslint:disable-next-line no-empty-interface
@@ -3266,7 +3256,6 @@ export const Constants: {
     Secondary: 16_759_788;
     Tertiary: 16_761_760;
   };
-  MaxBulkDeletableMessageAge: 1_209_600_000;
   SweeperKeys: SweeperKey[];
   NonSystemMessageTypes: NonSystemMessageType[];
   TextBasedChannelTypes: TextBasedChannelTypes[];
@@ -3312,9 +3301,10 @@ export enum DiscordjsErrorCodes {
 
   ReqResourceType = 'ReqResourceType',
 
-  MessageBulkDeleteType = 'MessageBulkDeleteType',
   MessageContentType = 'MessageContentType',
+  MessageComponentsUserAccount = 'MessageComponentsUserAccount',
   MessageEmbedsUserAccount = 'MessageEmbedsUserAccount',
+  MessageNotFound = 'MessageNotFound',
   MessageNonceRequired = 'MessageNonceRequired',
   MessageNonceType = 'MessageNonceType',
 
@@ -3868,19 +3858,6 @@ export class ThreadMemberManager extends CachedManager<Snowflake, ThreadMember, 
   public add(member: UserResolvable | '@me', reason?: string): Promise<Snowflake>;
   /* tslint:enable:unified-signatures */
 
-  public fetch(
-    options: ThreadMember<true> | ((FetchThreadMemberOptions & { withMember: true }) | { member: ThreadMember<true> }),
-  ): Promise<ThreadMember<true>>;
-
-  public fetch(options: ThreadMemberResolvable | FetchThreadMemberOptions): Promise<ThreadMember>;
-
-  public fetch(
-    options: FetchThreadMembersWithGuildMemberDataOptions,
-  ): Promise<Collection<Snowflake, ThreadMember<true>>>;
-
-  public fetch(options?: FetchThreadMembersWithoutGuildMemberDataOptions): Promise<Collection<Snowflake, ThreadMember>>;
-  public fetchMe(options?: BaseFetchOptions): Promise<ThreadMember>;
-
   /* tslint:disable:unified-signatures */
   public remove(member: UserResolvable | '@me'): Promise<Snowflake>;
   /** @deprecated The `reason` parameter is deprecated as Discord does not parse them. */
@@ -3902,7 +3879,6 @@ export class UserManager extends CachedManager<Snowflake, User, UserResolvable> 
 export class VoiceStateManager extends CachedManager<Snowflake, VoiceState, typeof VoiceState> {
   private constructor(guild: Guild, iterable?: Iterable<RawVoiceStateData>);
   public guild: Guild;
-  public fetch(member: GuildMemberResolvable | '@me', options?: BaseFetchOptions): Promise<VoiceState>;
 }
 
 //#endregion
@@ -3927,10 +3903,6 @@ export interface TextBasedChannelFields<InGuild extends boolean = boolean, InDM 
   get lastPinAt(): Date | null;
   messages: If<InGuild, GuildMessageManager, If<InDM, DMMessageManager, PartialGroupDMMessageManager>>;
   awaitMessages(options?: AwaitMessagesOptions): Promise<Collection<Snowflake, Message>>;
-  bulkDelete(
-    messages: Collection<Snowflake, Message> | readonly MessageResolvable[] | number,
-    filterOld?: boolean,
-  ): Promise<Collection<Snowflake, Message | PartialMessage | undefined>>;
   createMessageCollector(options?: MessageCollectorOptions): MessageCollector;
   createWebhook(options: ChannelWebhookCreateOptions): Promise<Webhook<WebhookType.Incoming>>;
   fetchWebhooks(): Promise<Collection<Snowflake, Webhook<WebhookType.ChannelFollower | WebhookType.Incoming>>>;
@@ -4632,6 +4604,7 @@ export interface ClientUserEditOptions {
   username?: string;
   avatar?: BufferResolvable | Base64Resolvable | null;
   banner?: BufferResolvable | Base64Resolvable | null;
+  password?: string;
 }
 
 export interface CloseEvent {
@@ -4984,31 +4957,6 @@ export interface FetchReactionUsersOptions {
   limit?: number;
   after?: Snowflake;
 }
-
-export interface FetchThreadMemberOptions extends BaseFetchOptions {
-  member: ThreadMemberResolvable;
-  withMember?: boolean;
-}
-
-export interface FetchThreadOwnerOptions extends BaseFetchOptions {
-  withMember?: boolean;
-}
-
-export interface FetchThreadMembersWithGuildMemberDataOptions {
-  withMember: true;
-  after?: Snowflake;
-  limit?: number;
-  cache?: boolean;
-}
-
-export interface FetchThreadMembersWithoutGuildMemberDataOptions {
-  withMember?: false;
-  cache?: boolean;
-}
-
-export type FetchThreadMembersOptions =
-  | FetchThreadMembersWithGuildMemberDataOptions
-  | FetchThreadMembersWithoutGuildMemberDataOptions;
 
 export interface FetchThreadsOptions {
   archived?: FetchArchivedThreadOptions;

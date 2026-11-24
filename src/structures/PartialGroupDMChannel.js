@@ -126,7 +126,6 @@ class PartialGroupDMChannel extends BaseChannel {
 }
 
 TextBasedChannel.applyToClass(PartialGroupDMChannel, true, [
-  'bulkDelete',
   'fetchWebhooks',
   'createWebhook',
   'setRateLimitPerUser',

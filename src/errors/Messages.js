@@ -32,9 +32,10 @@ const Messages = {
 
   [DjsErrorCodes.ReqResourceType]: 'The resource must be a string, Buffer or a valid file stream.',
 
-  [DjsErrorCodes.MessageBulkDeleteType]: 'The messages must be an Array, Collection, or number.',
   [DjsErrorCodes.MessageContentType]: 'Message content must be a string.',
+  [DjsErrorCodes.MessageComponentsUserAccount]: 'User accounts cannot send components; only bots and webhooks can.',
   [DjsErrorCodes.MessageEmbedsUserAccount]: 'User accounts cannot send embeds; only bots and webhooks can.',
+  [DjsErrorCodes.MessageNotFound]: 'Could not find the requested message.',
   [DjsErrorCodes.MessageNonceRequired]: 'Message nonce is required when enforceNonce is true.',
   [DjsErrorCodes.MessageNonceType]: 'Message nonce must be an integer or a string.',
 

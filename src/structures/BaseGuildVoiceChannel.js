@@ -219,7 +219,6 @@ class BaseGuildVoiceChannel extends GuildChannel {
   sendTyping() {}
   createMessageCollector() {}
   awaitMessages() {}
-  bulkDelete() {}
   fetchWebhooks() {}
   createWebhook() {}
   setRateLimitPerUser() {}

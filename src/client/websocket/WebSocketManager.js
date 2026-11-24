@@ -12,7 +12,7 @@ const {
 } = require('@discordjs/ws');
 const { GatewayCloseCodes, GatewayDispatchEvents } = require('discord-api-types/v10');
 const WebSocketShard = require('./WebSocketShard');
-const { patchUserIdentify } = require('./userIdentify');
+const { patchUserIdentify, TOO_MANY_SESSIONS_CLOSE_CODE } = require('./userIdentify');
 const PacketHandlers = require('./handlers');
 const { DiscordjsError, ErrorCodes } = require('../../errors');
 const Events = require('../../util/Events');
@@ -45,6 +45,7 @@ const UNRECOVERABLE_CLOSE_CODES = [
   GatewayCloseCodes.InvalidAPIVersion,
   GatewayCloseCodes.InvalidIntents,
   GatewayCloseCodes.DisallowedIntents,
+  TOO_MANY_SESSIONS_CLOSE_CODE,
 ];
 
 // The web client connects straight to this address and never calls the bot-only GET /gateway/bot, so neither do we.
@@ -272,7 +273,11 @@ class WebSocketManager extends EventEmitter {
          * @param {number} id The shard id that disconnected
          */
         this.client.emit(Events.ShardDisconnect, { code, reason: reasonIsDeprecated, wasClean: true }, shardId);
-        this.debug([`Shard not recoverable: ${code} (${GatewayCloseCodes[code] ?? CloseCodes[code]})`], shardId);
+        const closeName =
+          GatewayCloseCodes[code] ??
+          CloseCodes[code] ??
+          (code === TOO_MANY_SESSIONS_CLOSE_CODE ? 'TooManySessions' : 'Unknown');
+        this.debug([`Shard not recoverable: ${code} (${closeName})`], shardId);
         return;
       }
 

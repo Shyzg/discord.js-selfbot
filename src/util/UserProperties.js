@@ -60,8 +60,6 @@ function createUserProperties() {
   return { superProperties: props, userHeaders: headers };
 }
 
-const { superProperties, userHeaders } = createUserProperties();
-
 /**
  * Rewrites the per-request headers @discordjs/rest computes so they match a user account: the token carries
  * no `Bot ` scheme prefix, and the User-Agent must be the spoofed browser rather than `DiscordBot .../discord.js`.
@@ -81,12 +79,13 @@ function fixUserRequestHeaders(headers) {
 }
 
 // The web client's gateway IDENTIFY `capabilities` (1767421), which selects the modern (user) event format, minus
-// three bits whose events this library can't apply correctly. Keep them cleared when refreshing the web value:
+// four bits whose behavior this library can't apply correctly. Keep them cleared when refreshing the web value:
 // - AUTH_TOKEN_REFRESH (1 << 8): @discordjs/ws can't switch tokens, so later resumes would send the discarded one.
 // - DEBOUNCE_MESSAGE_REACTIONS (1 << 13): reaction bursts carry user ids only, so uncached reactors would be lost.
 // - PASSIVE_GUILD_UPDATE_V2 (1 << 14): batched voice updates drop a join and leave that fall between two batches.
+// - CHANNEL_OBFUSCATION (1 << 15): obfuscates channels without VIEW_CHANNEL, corrupting channel cache entries.
 // shortcut: point-in-time snapshot; refresh alongside client_build_number if the gateway starts rejecting it.
-const CAPABILITIES = 1767421 & ~((1 << 8) | (1 << 13) | (1 << 14));
+const CAPABILITIES = 1767421 & ~((1 << 8) | (1 << 13) | (1 << 14) | (1 << 15));
 
 /**
  * Rewrites a gateway IDENTIFY `d` to match the web client for user accounts: adds `capabilities` and
@@ -105,8 +104,6 @@ function applyUserIdentify(d) {
 module.exports = {
   USER_AGENT,
   createUserProperties,
-  superProperties,
-  userHeaders,
   fixUserRequestHeaders,
   CAPABILITIES,
   applyUserIdentify,

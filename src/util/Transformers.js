@@ -1,9 +1,16 @@
 'use strict';
 
 const { isJSONEncodable } = require('@discordjs/util');
-const snakeCase = require('lodash.snakecase');
 const { resolvePartialEmoji } = require('./Util');
 const AuthorizingIntegrationOwners = require('../structures/AuthorizingIntegrationOwners');
+
+function snakeCase(str) {
+  return str
+    .replace(/([a-z\d])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .replace(/[-\s]+/g, '_')
+    .toLowerCase();
+}
 
 /**
  * Transforms camel-cased keys into snake cased keys

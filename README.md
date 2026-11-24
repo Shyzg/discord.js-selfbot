@@ -13,7 +13,7 @@
 - Familiar discord.js v14 API (`new Client()` requires no `intents`)
 - User-account authentication: raw token, email/password (TOTP/SMS/backup MFA + captcha hook), QR remote-auth, and WebAuthn passkeys
 - Discord web-client REST/gateway fingerprint with per-client session UUIDs
-- Op-14 guild member list fetching and group DM messaging
+- Op-37 guild member list fetching and group DM messaging
 
 ## Installation
 
@@ -73,7 +73,7 @@ await client.passkeyLogin({
 
 ### Fetching guild members
 
-User accounts cannot use op-8 `guild.members.fetch()` freely on large guilds. Use `fetchMemberList` (op 14) with a channel visible to the guild:
+User accounts cannot use op-8 `guild.members.fetch()` freely on large guilds. Use `fetchMemberList` (op 37) with a channel visible to the guild:
 
 ```js
 const members = await guild.members.fetchMemberList(channel, { limit: 200 });
@@ -82,9 +82,9 @@ const members = await guild.members.fetchMemberList(channel, { limit: 200 });
 ## Differences from discord.js
 
 - **User accounts only:** `intents` are optional and ignored; `client.application` is `null` for user sessions.
-- **No user embeds:** Sending embeds rejects with `MessageEmbedsUserAccount` (webhooks can still send embeds).
+- **No user embeds or components:** Sending embeds or components rejects with `MessageEmbedsUserAccount` / `MessageComponentsUserAccount` (webhooks can still send them).
 - **Group DMs:** `PartialGroupDMChannel` supports `send`, `sendTyping`, `fetch`, `delete`, `createMessageCollector`, and `awaitMessages`.
-- **Bot-only APIs removed:** Sharding (`ShardingManager`), interactions/modals/component collectors, application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `fetchActiveThreads`/`fetchActive`, and `members.list`/`members.search`.
+- **Bot-only APIs removed:** Sharding (`ShardingManager`), interactions/modals/component collectors, application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `bulkDelete`/`bulkDeletable`, `fetchActiveThreads`/`fetchActive`, `ThreadMemberManager#fetch`/`fetchMe`, `ThreadChannel#fetchOwner`, `VoiceStateManager#fetch`/`VoiceState#fetch`, and `members.list`/`members.search`.
 
 ## Development
 
