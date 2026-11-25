@@ -1,10 +1,9 @@
 'use strict';
 
-const ClientApplication = require('../../../structures/ClientApplication');
 let ClientUser;
 
 module.exports = (client, { d: data }, shard) => {
-  if (client.user) {
+  if (client.user && client.user.id === data.user.id) {
     client.user._patch(data.user);
   } else {
     ClientUser ??= require('../../../structures/ClientUser');
@@ -27,15 +26,6 @@ module.exports = (client, { d: data }, shard) => {
     // User READY moves members into `merged_members` (one array per guild, `user_id` instead of `user`).
     const me = data.merged_members?.[index]?.find(member => member.user_id === data.user.id);
     if (me) cached.members._add({ ...me, user: data.user });
-  }
-
-  // User accounts have no application in READY (it is a bot-only field).
-  if (data.application) {
-    if (client.application) {
-      client.application._patch(data.application);
-    } else {
-      client.application = new ClientApplication(client, data.application);
-    }
   }
 
   shard.checkReady();

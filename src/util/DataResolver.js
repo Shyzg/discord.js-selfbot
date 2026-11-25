@@ -102,7 +102,7 @@ function resolveGuildTemplateCode(data) {
 async function resolveFile(resource) {
   if (Buffer.isBuffer(resource)) return { data: resource };
 
-  if (typeof resource[Symbol.asyncIterator] === 'function') {
+  if (typeof resource?.[Symbol.asyncIterator] === 'function') {
     const buffers = [];
     for await (const data of resource) buffers.push(Buffer.from(data));
     return { data: Buffer.concat(buffers) };

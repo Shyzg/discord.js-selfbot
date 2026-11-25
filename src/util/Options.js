@@ -15,8 +15,6 @@ const { toSnakeCase } = require('./Transformers');
 /**
  * Options for a client.
  * @typedef {Object} ClientOptions
- * @property {number} [closeTimeout=5_000] The amount of time in milliseconds to wait for the close frame to be received
- * from the WebSocket. Don't have this too high/low. It's best to have it between 2_000-6_000 ms.
  * @property {CacheFactory} [makeCache] Function to create a cache.
  * You can use your own function, or the {@link Options} class to customize the Collection used for the cache.
  * <warn>Overriding the cache used in `GuildManager`, `ChannelManager`, `GuildChannelManager`, `RoleManager`,
@@ -54,37 +52,12 @@ const { toSnakeCase } = require('./Transformers');
  */
 
 /**
- * A function to determine what strategy to use for sharding internally.
- * ```js
- * (manager) => new WorkerShardingStrategy(manager, { shardsPerWorker: 2 })
- * ```
- * @typedef {Function} BuildStrategyFunction
- * @param {WSWebSocketManager} manager The WebSocketManager that is going to initiate the sharding
- * @returns {IShardingStrategy} The strategy to use for sharding
- */
-
-/**
- * A function to change the concurrency handling for shard identifies of this manager
- * ```js
- * async (manager) => {
- *   const gateway = await manager.fetchGatewayInformation();
- *   return new SimpleIdentifyThrottler(gateway.session_start_limit.max_concurrency);
- * }
- * ```
- * @typedef {Function} IdentifyThrottlerFunction
- * @param {WSWebSocketManager} manager The WebSocketManager that is going to initiate the sharding
- * @returns {Awaitable<IIdentifyThrottler>} The identify throttler that this ws manager will use
- */
-
-/**
  * WebSocket options (these are left as snake_case to match the API)
  * @typedef {Object} WebsocketOptions
  * @property {number} [large_threshold] Member count above which a user account stops receiving some events for
  * guilds it has not subscribed to (25-250). Unset, the field is not sent and Discord's user default of 250 applies
  * @property {number} [version=10] The Discord gateway version to use <warn>Changing this can break the library;
  * only set this if you know what you are doing</warn>
- * @property {BuildStrategyFunction} [buildStrategy] Builds the strategy to use for sharding
- * @property {IdentifyThrottlerFunction} [buildIdentifyThrottler] Builds the identify throttler to use for sharding
  */
 
 /**
@@ -97,7 +70,6 @@ class Options extends null {
    */
   static createDefault() {
     return {
-      closeTimeout: 5_000,
       makeCache: this.cacheWithLimits(this.DefaultMakeCacheSettings),
       partials: [],
       failIfNotExists: true,

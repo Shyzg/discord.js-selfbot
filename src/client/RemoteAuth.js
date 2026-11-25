@@ -15,6 +15,8 @@ const REMOTE_AUTH_GATEWAY = 'wss://remote-auth-gateway.discord.gg/?v=2';
  * @private
  */
 class RemoteAuth {
+  static HANDSHAKE_TIMEOUT_MS = 30_000;
+
   constructor(client) {
     this.client = client;
     const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -45,6 +47,7 @@ class RemoteAuth {
       this.ws = new WebSocket(REMOTE_AUTH_GATEWAY, {
         headers: { Origin: 'https://discord.com', 'User-Agent': USER_AGENT },
       });
+      this.timeout = setTimeout(() => fail('remote auth session timed out'), RemoteAuth.HANDSHAKE_TIMEOUT_MS);
       this.ws.addEventListener('error', () => {
         if (!this.loggingIn) fail('gateway connection error');
       });
@@ -119,10 +122,15 @@ class RemoteAuth {
         this.loggingIn = true;
         clearInterval(this.heartbeat);
         clearTimeout(this.timeout);
-        const { encrypted_token: encryptedToken } = await this.client.rest.post('/users/@me/remote-auth/login', {
-          body: { ticket: message.ticket },
-          auth: false,
-        });
+        const { encrypted_token: encryptedToken } = await this.client.rest
+          .post('/users/@me/remote-auth/login', {
+            body: { ticket: message.ticket },
+            auth: false,
+          })
+          .catch(error => {
+            if (error?.requestBody) delete error.requestBody;
+            throw error;
+          });
         this.destroy();
         resolve(this._decrypt(encryptedToken).toString());
         break;

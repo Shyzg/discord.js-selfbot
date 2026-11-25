@@ -199,7 +199,7 @@ class Invite extends Base {
        * The timestamp this invite was created at
        * @type {?number}
        */
-      this.createdTimestamp = Date.parse(data.created_at);
+      this.createdTimestamp = data.created_at ? Date.parse(data.created_at) : null;
     } else {
       this.createdTimestamp ??= null;
     }

@@ -1,6 +1,5 @@
 'use strict';
 
-const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
 const { ChannelType, Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
@@ -15,26 +14,15 @@ const { ThreadChannelTypes } = require('../util/Constants');
 const { resolveImage } = require('../util/DataResolver');
 const { setPosition } = require('../util/Util');
 
-let cacheWarningEmitted = false;
-
 /**
  * Manages API methods for GuildChannels and stores their cache.
  * @extends {CachedManager}
  */
 class GuildChannelManager extends CachedManager {
+  static _warnOnCacheOverride = true;
+
   constructor(guild, iterable) {
     super(guild.client, GuildChannel, iterable);
-    const defaultCaching =
-      this._cache.constructor.name === 'Collection' ||
-      this._cache.maxSize === undefined ||
-      this._cache.maxSize === Infinity;
-    if (!cacheWarningEmitted && !defaultCaching) {
-      cacheWarningEmitted = true;
-      process.emitWarning(
-        `Overriding the cache handling for ${this.constructor.name} is unsupported and breaks functionality.`,
-        'UnsupportedCacheOverwriteWarning',
-      );
-    }
 
     /**
      * The guild this Manager belongs to

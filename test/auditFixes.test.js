@@ -3,9 +3,20 @@
 const assert = require('node:assert/strict');
 const EventEmitter = require('node:events');
 const { test } = require('node:test');
+const { inspect } = require('node:util');
+const { DiscordAPIError } = require('@discordjs/rest');
 const { WebSocketShardEvents: WSWebSocketShardEvents } = require('@discordjs/ws');
-const { ChannelType, Routes } = require('discord-api-types/v10');
 const {
+  ActivityType,
+  ApplicationCommandOptionType,
+  ChannelType,
+  MessageReferenceType,
+  Routes,
+} = require('discord-api-types/v10');
+const djs = require('../src');
+const {
+  ApplicationCommand,
+  CategoryChannelChildManager,
   Client,
   Constants,
   DiscordjsErrorCodes,
@@ -13,6 +24,10 @@ const {
   Events,
   BaseGuildTextChannel,
   BaseGuildVoiceChannel,
+  LimitedCollection,
+  Options,
+  PartialGroupDMMessageManager,
+  ReactionCollector,
   Status,
   TextChannel,
   ThreadChannel,
@@ -25,9 +40,12 @@ const {
   VoiceState,
   VoiceStateManager,
   WebhookClient,
+  WebSocketShard,
   cleanContent,
-} = require('../src');
+} = djs;
 const ClientUser = require('../src/structures/ClientUser');
+const Integration = require('../src/structures/Integration');
+const Invite = require('../src/structures/Invite');
 const { Message } = require('../src/structures/Message');
 const { resolveFile, resolveInviteCode } = require('../src/util/DataResolver');
 const { toSnakeCase } = require('../src/util/Transformers');
@@ -296,4 +314,318 @@ test('toSnakeCase converts camelCase and acronym keys without lodash.snakecase',
     min_values: 1,
     nested_item: [{ max_length: 10, http_status: 200 }],
   });
+});
+
+test('ClientUser#edit strips plaintext password from REST errors', async () => {
+  const client = new Client();
+  client.user = new ClientUser(client, { id: '1', username: 'old' });
+  client.rest.patch = async (route, opts) => {
+    throw new DiscordAPIError({ message: 'Invalid password', code: 50035 }, 50035, 400, 'PATCH', route, {
+      body: opts.body,
+    });
+  };
+  const error = await client.user.setUsername('newname', 'super-secret-password').catch(err => err);
+  assert.ok(error instanceof DiscordAPIError);
+  assert.ok(!inspect(error).includes('super-secret-password'));
+  await client.destroy();
+});
+
+test('Guild defaults shardId to 0 when constructed from REST payloads without shardId', async () => {
+  const client = new Client();
+  const fakeShard = { id: 0, send: () => {} };
+  client.ws.shards.set(0, fakeShard);
+  const guild = client.guilds._add({ id: '42', name: 'FetchedGuild' });
+  assert.equal(guild.shardId, 0);
+  assert.equal(guild.shard, fakeShard);
+  await client.destroy();
+});
+
+test('MessagePayload inherits client.options.enforceNonce when caller passes an explicit nonce', async () => {
+  const client = new Client();
+  const dm = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2', username: 'bob' }] });
+
+  const withNonce = MessagePayload.create(dm, { content: 'hi', nonce: '123456' }).resolveBody().body;
+  assert.equal(withNonce.nonce, '123456');
+  assert.equal(withNonce.enforce_nonce, true);
+
+  const explicitOff = MessagePayload.create(dm, { content: 'hi', nonce: '123456', enforceNonce: false }).resolveBody()
+    .body;
+  assert.equal(explicitOff.nonce, '123456');
+  assert.equal(explicitOff.enforce_nonce, undefined);
+
+  const disabledClient = new Client({ enforceNonce: false });
+  const dm2 = disabledClient.channels._add({ id: '11', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const disabledBody = MessagePayload.create(dm2, { content: 'hi', nonce: '123456' }).resolveBody().body;
+  assert.equal(disabledBody.nonce, '123456');
+  assert.equal(disabledBody.enforce_nonce, undefined);
+  assert.throws(() => MessagePayload.create(dm2, { content: 'hi', enforceNonce: true }).resolveBody(), {
+    code: DiscordjsErrorCodes.MessageNonceRequired,
+  });
+
+  await client.destroy();
+  await disabledClient.destroy();
+});
+
+test('resolveFile rejects null and undefined with ReqResourceType instead of raw TypeError', async () => {
+  await assert.rejects(() => resolveFile(null), { code: DiscordjsErrorCodes.ReqResourceType });
+  await assert.rejects(() => resolveFile(undefined), { code: DiscordjsErrorCodes.ReqResourceType });
+});
+
+test('exports match runtime and dead deprecated wrappers are removed', () => {
+  assert.equal(typeof CategoryChannelChildManager, 'function');
+  assert.equal(typeof PartialGroupDMMessageManager, 'function');
+  assert.equal('SelectMenuComponent' in djs, false);
+  assert.equal('fetchPremiumStickerPacks' in Client.prototype, false);
+  assert.equal('emitClose' in WebSocketShard.prototype, false);
+});
+
+test('null timestamps in Message#equals, ThreadChannel, Integration, and Invite resolve to null (not NaN)', async () => {
+  const client = new Client();
+  const guild = client.guilds._add({ id: '1', name: 'G' });
+  const rawMsg = {
+    id: '10',
+    channel_id: '20',
+    author: { id: '2', username: 'u' },
+    content: 'hi',
+    edited_timestamp: null,
+    mention_everyone: false,
+    mentions: [],
+    mention_roles: [],
+    attachments: [],
+    embeds: [],
+    type: 0,
+  };
+  const msg = new Message(client, rawMsg);
+  rawMsg.timestamp = new Date(msg.createdTimestamp).toISOString();
+  assert.equal(msg.equals(msg, rawMsg), true);
+
+  const thread = client.channels._add(
+    {
+      id: '30',
+      type: ChannelType.PublicThread,
+      guild_id: '1',
+      name: 'old-thread',
+      thread_metadata: {
+        archived: false,
+        auto_archive_duration: 60,
+        archive_timestamp: '2025-01-01T00:00:00.000Z',
+        locked: false,
+        create_timestamp: null,
+      },
+    },
+    guild,
+  );
+  assert.equal(thread.createdTimestamp, null);
+
+  const integration = new Integration(
+    client,
+    { id: '40', name: 'int', type: 'discord', synced_at: null, account: { id: '1', name: 'a' } },
+    guild,
+  );
+  assert.equal(integration.syncedTimestamp, null);
+
+  const invite = new Invite(client, { code: 'abc', created_at: null });
+  assert.equal(invite.createdTimestamp, null);
+  await client.destroy();
+});
+
+test('CachedManager emits UnsupportedCacheOverwriteWarning once for bounded core managers', async t => {
+  const warnings = [];
+  const onWarning = w => warnings.push(w);
+  process.on('warning', onWarning);
+  t.after(() => process.off('warning', onWarning));
+
+  const client = new Client({ makeCache: () => new LimitedCollection({ maxSize: 1 }) });
+  // Trigger another GuildManager / ChannelManager check indirectly by checking warning emitted
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(warnings.some(w => w.name === 'UnsupportedCacheOverwriteWarning' && w.message.includes('GuildManager')));
+  assert.ok(warnings.some(w => w.name === 'UnsupportedCacheOverwriteWarning' && w.message.includes('ChannelManager')));
+  await client.destroy();
+});
+
+test('ReactionCollector only empties when MessageReactionRemoveAll targets its own message', async () => {
+  const client = new Client();
+  const channel = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const msgA = channel.messages._add({ id: '100', channel_id: '10', author: { id: '2', username: 'u' }, content: 'a' });
+  const msgB = channel.messages._add({ id: '200', channel_id: '10', author: { id: '2', username: 'u' }, content: 'b' });
+
+  const collector = new ReactionCollector(msgA);
+  const reaction = msgA.reactions._add({ count: 1, me: false, emoji: { id: null, name: '👍' } });
+  client.emit(Events.MessageReactionAdd, reaction, client.users._add({ id: '2', username: 'u' }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(collector.collected.size, 1);
+  assert.equal(collector.total, 1);
+
+  // Clearing reactions on an unrelated message must not wipe msgA's collector
+  client.emit(Events.MessageReactionRemoveAll, msgB);
+  assert.equal(collector.collected.size, 1);
+  assert.equal(collector.total, 1);
+
+  // Clearing reactions on msgA itself empties the collector
+  client.emit(Events.MessageReactionRemoveAll, msgA);
+  assert.equal(collector.collected.size, 0);
+  assert.equal(collector.total, 0);
+
+  collector.stop();
+  await client.destroy();
+});
+
+test('forwarded message_snapshots do not overwrite or pollute source channel message cache', async () => {
+  const client = new Client();
+  const channel = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const original = channel.messages._add({
+    id: '100',
+    channel_id: '10',
+    author: { id: '2', username: 'alice' },
+    content: 'latest edited text',
+    type: 0,
+  });
+
+  // Forward of cached message 100 with older snapshot content
+  const fwd1 = new Message(client, {
+    id: '500',
+    channel_id: '10',
+    author: { id: '3', username: 'bob' },
+    content: '',
+    type: 0,
+    message_reference: { type: MessageReferenceType.Forward, channel_id: '10', message_id: '100' },
+    message_snapshots: [{ message: { content: 'old snapshot text', type: 0, embeds: [], attachments: [] } }],
+  });
+  assert.equal(original.content, 'latest edited text');
+  assert.equal(channel.messages.cache.get('100')?.content, 'latest edited text');
+  assert.equal(fwd1.messageSnapshots.get('100')?.content, 'old snapshot text');
+
+  // Forward of uncached message 101 must not insert a partial author-less entry into channel cache
+  const fwd2 = new Message(client, {
+    id: '501',
+    channel_id: '10',
+    author: { id: '3', username: 'bob' },
+    content: '',
+    type: 0,
+    message_reference: { type: MessageReferenceType.Forward, channel_id: '10', message_id: '101' },
+    message_snapshots: [{ message: { content: 'uncached snapshot', type: 0, embeds: [], attachments: [] } }],
+  });
+  assert.equal(channel.messages.cache.has('101'), false);
+  assert.equal(fwd2.messageSnapshots.get('101')?.content, 'uncached snapshot');
+
+  await client.destroy();
+});
+
+test('partial Message getters/equals and Role#editable with uncached me do not throw TypeError', async () => {
+  const client = new Client();
+  client.user = new ClientUser(client, { id: '1', username: 'me' });
+  const dm = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const partialDmMsg = new Message(client, { id: '100', channel_id: dm.id });
+  assert.equal(partialDmMsg.partial, true);
+  assert.equal(partialDmMsg.editable, false);
+  assert.equal(partialDmMsg.deletable, false);
+  assert.equal(partialDmMsg.crosspostable, false);
+  assert.equal(partialDmMsg.equals(new Message(client, { id: '100', channel_id: dm.id, author: { id: '2' } })), false);
+
+  const guild = client.guilds._add({
+    id: '50',
+    properties: { name: 'G', owner_id: '999' },
+    roles: [
+      { id: '50', name: '@everyone', position: 0, permissions: '0' },
+      { id: '51', name: 'mod', position: 1, permissions: '0', managed: false },
+    ],
+    channels: [{ id: '60', type: ChannelType.GuildText, name: 'general', permission_overwrites: [] }],
+  });
+  assert.equal(guild.roles.cache.get('51').editable, false);
+
+  await client.destroy();
+});
+
+test('MessagePayload.resolveFile rejects null/undefined cleanly and resolveBody/ClientPresence do not mutate inputs', async () => {
+  await assert.rejects(() => MessagePayload.resolveFile(null), { code: DiscordjsErrorCodes.ReqResourceType });
+  await assert.rejects(() => MessagePayload.resolveFile(undefined), { code: DiscordjsErrorCodes.ReqResourceType });
+  await assert.rejects(() => MessagePayload.resolveFile({ attachment: null }), {
+    code: DiscordjsErrorCodes.ReqResourceType,
+  });
+
+  const client = new Client();
+  const dm = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const keepList = [{ id: 'existing' }];
+  const payload = MessagePayload.create(dm, {
+    content: 'hi',
+    attachments: keepList,
+    files: [{ attachment: Buffer.from('a'), name: 'a.txt', description: 'desc' }],
+  }).resolveBody();
+  assert.equal(keepList.length, 1);
+  assert.equal(payload.body.attachments.length, 2);
+
+  const customActivity = { name: 'Busy', type: ActivityType.Custom };
+  const parsed = client.presence._parse({ activities: [customActivity] });
+  assert.deepEqual(customActivity, { name: 'Busy', type: ActivityType.Custom });
+  assert.equal(parsed.activities[0].name, 'Custom Status');
+  assert.equal(parsed.activities[0].state, 'Busy');
+
+  await client.destroy();
+});
+
+test('GuildManager#create ignores unrelated GuildCreate events and resolves when its own guild arrives', async () => {
+  const client = new Client();
+  client.rest.post = async () => ({ id: 'new-guild', name: 'New', roles: [], channels: [], emojis: [] });
+
+  const creating = client.guilds.create({ name: 'New' });
+  await new Promise(resolve => setImmediate(resolve));
+
+  // Unrelated guild arrives first — must NOT consume the listener
+  const unrelated = client.guilds._add({ id: 'other-guild', name: 'Other' });
+  client.emit(Events.GuildCreate, unrelated);
+
+  const created = client.guilds._add({ id: 'new-guild', name: 'New' });
+  client.emit(Events.GuildCreate, created);
+
+  const resolved = await creating;
+  assert.equal(resolved.id, 'new-guild');
+  await client.destroy();
+});
+
+test('UserManager#fetch and createDM reject invalid null/undefined users locally without REST calls', async () => {
+  const client = new Client();
+  let calls = 0;
+  client.rest.get = async () => {
+    calls++;
+    return {};
+  };
+  client.rest.post = async () => {
+    calls++;
+    return {};
+  };
+
+  await assert.rejects(() => client.users.fetch(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => client.users.fetch(undefined), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => client.users.createDM(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => client.users.createDM(undefined), { code: DiscordjsErrorCodes.InvalidType });
+  assert.equal(calls, 0);
+  await client.destroy();
+});
+
+test('dead options, deprecated DeletableMessageTypes, and bot-only ApplicationCommand diffing are removed', () => {
+  assert.equal('closeTimeout' in Options.createDefault(), false);
+  assert.equal('DeletableMessageTypes' in Constants, false);
+  assert.equal('equals' in ApplicationCommand.prototype, false);
+  assert.equal('optionsEqual' in ApplicationCommand, false);
+
+  const client = new Client();
+  const cmd = new ApplicationCommand(client, {
+    id: '1',
+    application_id: '2',
+    name: 'ping',
+    description: 'ping',
+    version: '1',
+    options: [
+      {
+        type: ApplicationCommandOptionType.String,
+        name: 'msg',
+        description: 'text',
+        min_length: 1,
+        max_length: 10,
+      },
+    ],
+  });
+  assert.equal(cmd.options[0].minLength, 1);
+  assert.equal(cmd.options[0].maxLength, 10);
+  client.destroy();
 });

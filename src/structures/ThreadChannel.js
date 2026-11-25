@@ -115,7 +115,9 @@ class ThreadChannel extends BaseChannel {
 
       if ('create_timestamp' in data.thread_metadata) {
         // Note: this is needed because we can't assign directly to getters
-        this._createdTimestamp = Date.parse(data.thread_metadata.create_timestamp);
+        this._createdTimestamp = data.thread_metadata.create_timestamp
+          ? Date.parse(data.thread_metadata.create_timestamp)
+          : null;
       }
     } else {
       this.locked ??= null;

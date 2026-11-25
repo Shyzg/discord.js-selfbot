@@ -202,3 +202,100 @@ test('fetching every member without Manage Roles, Kick or Ban fails at once inst
   await assert.rejects(guild.members.fetch({ time: 10 }), { code: 'GuildMembersTimeout' });
   assert.equal(sent[0]?.op, GatewayOpcodes.RequestGuildMembers);
 });
+
+test('fetchMemberList does not hang when live UPDATE churn adds no new members', async () => {
+  const client = new Client();
+  client.ws.shards.set(0, { send: () => {} });
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
+
+  const promise = guild.members.fetchMemberList('123456789012345678', { limit: 200, time: 40 });
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: {
+      guild_id: '1',
+      ops: [{ op: 'SYNC', items: [{ member: { user: { id: 'u1', username: 'alice' }, roles: [] } }] }],
+    },
+  });
+
+  // Emit repeated live UPDATE churn for an already-collected member every 10ms; must not keep resetting timer forever.
+  const spam = setInterval(() => {
+    client.emit(Events.Raw, {
+      t: 'GUILD_MEMBER_LIST_UPDATE',
+      d: {
+        guild_id: '1',
+        ops: [{ op: 'UPDATE', item: { member: { user: { id: 'u1', username: 'alice' }, roles: [] } } }],
+      },
+    });
+  }, 10);
+
+  try {
+    const members = await promise;
+    assert.deepEqual([...members.keys()], ['u1']);
+  } finally {
+    clearInterval(spam);
+  }
+});
+
+test('async shard.send rejections reject cleanly without unhandledRejection and clean up listeners', async () => {
+  const { WebSocketManager: WSWebSocketManager } = require('@discordjs/ws');
+  const WebSocketShard = require('../src/client/websocket/WebSocketShard');
+  const client = new Client();
+  client.user = { id: '1' };
+  client.ws._ws = new WSWebSocketManager({ token: 'fake', intents: 0, rest: client.rest });
+  const realShard = new WebSocketShard(client.ws, 0);
+  client.ws.shards.set(0, realShard);
+
+  const guild = client.guilds._add({
+    id: '10',
+    properties: { name: 'G', owner_id: '1' },
+    roles: [{ id: '10', name: '@everyone', permissions: String(PermissionFlagsBits.ManageRoles) }],
+  });
+  guild.shardId = 0;
+
+  const rawBefore = client.listenerCount(Events.Raw);
+  const chunkBefore = client.listenerCount(Events.GuildMembersChunk);
+  const soundBefore = client.listenerCount(Events.SoundboardSounds);
+
+  // Real @discordjs/ws rejects asynchronously when shard 0 is not connected.
+  await assert.rejects(() => guild.members.fetchMemberList('123456789012345678', { limit: 10, time: 500 }), /Shard 0/);
+  assert.equal(client.listenerCount(Events.Raw), rawBefore);
+
+  await assert.rejects(() => guild.members.fetch({ time: 500 }), /Shard 0/);
+  assert.equal(client.listenerCount(Events.Raw), rawBefore);
+  assert.equal(client.listenerCount(Events.GuildMembersChunk), chunkBefore);
+
+  await assert.rejects(() => client.guilds.fetchSoundboardSounds({ guildIds: ['10'], time: 500 }), /Shard 0/);
+  assert.equal(client.listenerCount(Events.SoundboardSounds), soundBefore);
+
+  // Cleanup unsubscribe failure on a dropped socket must not become an unhandled rejection.
+  let calls = 0;
+  client.ws.shards.set(0, {
+    send() {
+      calls++;
+      return calls === 1 ? Promise.resolve() : Promise.reject(new Error('dropped during cleanup'));
+    },
+  });
+  const okPromise = guild.members.fetchMemberList('123456789012345678', { limit: 1, time: 500 });
+  client.emit(Events.Raw, {
+    t: 'GUILD_MEMBER_LIST_UPDATE',
+    d: {
+      guild_id: '10',
+      ops: [{ op: 'SYNC', items: [{ member: { user: { id: 'u1', username: 'a' }, roles: [] } }] }],
+    },
+  });
+  const collected = await okPromise;
+  assert.equal(collected.size, 1);
+
+  // broadcast() and ClientPresence#set() route async send failures to ShardError instead of crashing.
+  const shardErrors = [];
+  client.on(Events.ShardError, (error, shardId) => shardErrors.push([error.message, shardId]));
+  client.ws.shards.set(0, realShard);
+  client.presence.set({ status: 'idle' });
+  client.presence.set({ status: 'dnd', shardId: 0 });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(shardErrors.length, 2);
+  assert.equal(shardErrors[0][1], 0);
+  assert.equal(shardErrors[1][1], 0);
+
+  await client.destroy();
+});

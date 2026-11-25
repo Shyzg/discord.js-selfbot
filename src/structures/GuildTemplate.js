@@ -1,10 +1,8 @@
 'use strict';
 
-const { setTimeout, clearTimeout } = require('node:timers');
 const { RouteBases, Routes } = require('discord-api-types/v10');
 const Base = require('./Base');
 const { resolveImage } = require('../util/DataResolver');
-const Events = require('../util/Events');
 
 /**
  * Represents the template for a guild.
@@ -131,27 +129,7 @@ class GuildTemplate extends Base {
       },
     });
 
-    if (client.guilds.cache.has(data.id)) return client.guilds.cache.get(data.id);
-
-    return new Promise(resolve => {
-      const resolveGuild = guild => {
-        client.off(Events.GuildCreate, handleGuild);
-        client.decrementMaxListeners();
-        resolve(guild);
-      };
-
-      const handleGuild = guild => {
-        if (guild.id === data.id) {
-          clearTimeout(timeout);
-          resolveGuild(guild);
-        }
-      };
-
-      client.incrementMaxListeners();
-      client.on(Events.GuildCreate, handleGuild);
-
-      const timeout = setTimeout(() => resolveGuild(client.guilds._add(data)), 10_000).unref();
-    });
+    return client.guilds._waitForGuild(data);
   }
 
   /**

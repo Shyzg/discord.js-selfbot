@@ -182,7 +182,7 @@ class GuildMemberManager extends CachedManager {
         const collected = new Collection();
         let nextStart = 0;
         let subscribed = false;
-        const sendSubscription = channels => {
+        const sendSubscription = channels =>
           this.guild.shard.send({
             op: 37,
             d: {
@@ -196,7 +196,6 @@ class GuildMemberManager extends CachedManager {
               },
             },
           });
-        };
         const cleanup = () => {
           settled = true;
           clearTimeout(timer);
@@ -206,10 +205,16 @@ class GuildMemberManager extends CachedManager {
             subscribed = false;
             // Clear the channel range subscription so Discord stops streaming updates and future calls get a fresh SYNC.
             try {
-              sendSubscription({});
+              Promise.resolve(sendSubscription({})).catch(() => {});
             } catch {}
           }
           if (this._memberListQueue === current) this._memberListQueue = null;
+        };
+        const failSend = error => {
+          if (settled) return;
+          subscribed = false;
+          cleanup();
+          reject(error);
         };
         const sendNext = () => {
           // Each op-37 frame replaces the guild's subscribed ranges, with [0, 99] anchored. Step one 100-slot range
@@ -222,8 +227,13 @@ class GuildMemberManager extends CachedManager {
                   [nextStart, nextStart + 99],
                 ];
           nextStart += 100;
-          sendSubscription({ [channelId]: window });
-          subscribed = true;
+          try {
+            const pending = sendSubscription({ [channelId]: window });
+            subscribed = true;
+            Promise.resolve(pending).catch(failSend);
+          } catch (error) {
+            failSend(error);
+          }
         };
         const timer = setTimeout(() => {
           cleanup();
@@ -233,7 +243,6 @@ class GuildMemberManager extends CachedManager {
         }, time).unref();
         const handler = packet => {
           if (packet.t !== 'GUILD_MEMBER_LIST_UPDATE' || packet.d.guild_id !== this.guild.id) return;
-          timer.refresh();
           const before = collected.size;
           let sawSync = false;
           for (const op of packet.d.ops ?? []) {
@@ -250,23 +259,14 @@ class GuildMemberManager extends CachedManager {
               }
             }
           }
-          if (sawSync && collected.size > before) {
-            try {
-              sendNext();
-            } catch (error) {
-              cleanup();
-              reject(error);
-            }
+          if (collected.size > before) {
+            timer.refresh();
+            if (sawSync) sendNext();
           }
         };
         this.client.incrementMaxListeners();
         this.client.on(Events.Raw, handler);
-        try {
-          sendNext();
-        } catch (error) {
-          cleanup();
-          reject(error);
-        }
+        sendNext();
       });
 
     const previous = this._memberListQueue;
@@ -310,7 +310,9 @@ class GuildMemberManager extends CachedManager {
       const fetchedMembers = new Collection();
       let i = 0;
 
+      let settled = false;
       const cleanup = () => {
+        settled = true;
         clearTimeout(timeout);
 
         this.client.removeListener(Events.Raw, rateLimitHandler);
@@ -359,14 +361,21 @@ class GuildMemberManager extends CachedManager {
       this.client.incrementMaxListeners();
       this.client.on(Events.GuildMembersChunk, handler);
 
-      try {
-        this.guild.shard.send({
-          op: GatewayOpcodes.RequestGuildMembers,
-          d: requestData,
-        });
-      } catch (error) {
+      const fail = error => {
+        if (settled) return;
         cleanup();
         reject(error);
+      };
+
+      try {
+        Promise.resolve(
+          this.guild.shard.send({
+            op: GatewayOpcodes.RequestGuildMembers,
+            d: requestData,
+          }),
+        ).catch(fail);
+      } catch (error) {
+        fail(error);
       }
     });
   }

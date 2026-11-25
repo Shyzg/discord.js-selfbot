@@ -280,7 +280,10 @@ class Sweepers {
    */
   destroy() {
     for (const key of SweeperKeys) {
-      if (this.intervals[key]) clearInterval(this.intervals[key]);
+      if (this.intervals[key]) {
+        clearInterval(this.intervals[key]);
+        this.intervals[key] = null;
+      }
     }
   }
 

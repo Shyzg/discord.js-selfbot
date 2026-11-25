@@ -5,7 +5,9 @@ const assert = require('node:assert/strict');
 const { Buffer } = require('node:buffer');
 const { test } = require('node:test');
 const { setTimeout } = require('node:timers/promises');
+const { inspect } = require('node:util');
 const { createPublicKey, publicEncrypt, constants, randomBytes } = require('node:crypto');
+const { DiscordAPIError } = require('@discordjs/rest');
 const { Client } = require('../src');
 const RemoteAuth = require('../src/client/RemoteAuth');
 
@@ -263,4 +265,60 @@ test('hello enforces heartbeat_ack and timeout_ms', async () => {
   await setTimeout(40);
   timed.destroy();
   assert.ok(timeouts.some(reason => /timed out/i.test(reason)));
+});
+
+test('RemoteAuth#run times out if the gateway stalls before hello arrives', async t => {
+  const originalWs = globalThis.WebSocket;
+  const originalTimeout = RemoteAuth.HANDSHAKE_TIMEOUT_MS;
+  t.after(() => {
+    globalThis.WebSocket = originalWs;
+    RemoteAuth.HANDSHAKE_TIMEOUT_MS = originalTimeout;
+  });
+  RemoteAuth.HANDSHAKE_TIMEOUT_MS = 20;
+  let closed = false;
+  globalThis.WebSocket = class extends EventTarget {
+    send() {}
+    close() {
+      closed = true;
+    }
+  };
+  const remote = new RemoteAuth(userClient());
+  await assert.rejects(() => remote.run(), /timed out/i);
+  assert.equal(closed, true);
+});
+
+test('RemoteAuth strips the login ticket from REST errors on /users/@me/remote-auth/login', async () => {
+  const client = userClient();
+  const remote = new RemoteAuth(client);
+  remote.ws = { send: () => {}, close: () => {} };
+  client.rest = {
+    post: async (route, opts) => {
+      throw new DiscordAPIError({ message: 'Invalid ticket', code: 0 }, 0, 400, 'POST', route, { body: opts.body });
+    },
+  };
+  const error = await remote
+    ._handle({ op: 'pending_login', ticket: 'SECRET-QR-TICKET' }, { resolve: () => {}, fail: () => {} })
+    .catch(err => err);
+  assert.ok(error instanceof DiscordAPIError);
+  assert.ok(!inspect(error).includes('SECRET-QR-TICKET'));
+});
+
+test('Client#QRLogin rejects with TokenInvalid instead of falling back to DISCORD_TOKEN when no token returns', async t => {
+  const prev = process.env.DISCORD_TOKEN;
+  const origRun = RemoteAuth.prototype.run;
+  process.env.DISCORD_TOKEN = 'ENV.ACCOUNT.TOKEN';
+  t.after(() => {
+    RemoteAuth.prototype.run = origRun;
+    if (prev === undefined) delete process.env.DISCORD_TOKEN;
+    else process.env.DISCORD_TOKEN = prev;
+  });
+  RemoteAuth.prototype.run = async () => '';
+  const client = new Client();
+  let loginCalled = false;
+  client.login = async () => {
+    loginCalled = true;
+  };
+  await assert.rejects(() => client.QRLogin(), { code: 'TokenInvalid' });
+  assert.equal(loginCalled, false);
+  await client.destroy();
 });

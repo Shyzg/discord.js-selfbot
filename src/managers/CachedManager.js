@@ -1,7 +1,10 @@
 'use strict';
 
+const process = require('node:process');
 const DataManager = require('./DataManager');
 const { MakeCacheOverrideSymbol } = require('../util/Symbols');
+
+const warnedManagers = new Set();
 
 /**
  * Manages the API methods of a data model with a mutable cache of instances.
@@ -26,6 +29,20 @@ class CachedManager extends DataManager {
         this.constructor,
       ),
     });
+
+    if (this.constructor._warnOnCacheOverride && !warnedManagers.has(this.constructor.name)) {
+      const defaultCaching =
+        this._cache.constructor.name === 'Collection' ||
+        this._cache.maxSize === undefined ||
+        this._cache.maxSize === Infinity;
+      if (!defaultCaching) {
+        warnedManagers.add(this.constructor.name);
+        process.emitWarning(
+          `Overriding the cache handling for ${this.constructor.name} is unsupported and breaks functionality.`,
+          'UnsupportedCacheOverwriteWarning',
+        );
+      }
+    }
 
     if (iterable) {
       for (const item of iterable) {

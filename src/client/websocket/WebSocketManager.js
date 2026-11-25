@@ -12,7 +12,7 @@ const {
 } = require('@discordjs/ws');
 const { GatewayCloseCodes, GatewayDispatchEvents } = require('discord-api-types/v10');
 const WebSocketShard = require('./WebSocketShard');
-const { patchUserIdentify, TOO_MANY_SESSIONS_CLOSE_CODE } = require('./userIdentify');
+const { patchUserIdentify, registerUserClient, TOO_MANY_SESSIONS_CLOSE_CODE } = require('./userIdentify');
 const PacketHandlers = require('./handlers');
 const { DiscordjsError, ErrorCodes } = require('../../errors');
 const Events = require('../../util/Events');
@@ -57,8 +57,6 @@ const GATEWAY_INFORMATION = {
 };
 
 const reasonIsDeprecated = 'the reason property is deprecated, use the code property to determine the reason';
-let deprecationEmittedForInvalidSessionEvent = false;
-let deprecationEmittedForDestroyedEvent = false;
 
 /**
  * The WebSocket manager for this client.
@@ -149,12 +147,17 @@ class WebSocketManager extends EventEmitter {
   async connect() {
     const invalidToken = new DiscordjsError(ErrorCodes.TokenInvalid);
     const { ws } = this.client.options;
+    if (this._ws && this._ws.token !== this.client.token) {
+      await this.destroy();
+      this.client.readyTimestamp = null;
+      this.client.user = null;
+      this.client.application = null;
+      this.client.guilds.cache.clear();
+      this.client.channels.cache.clear();
+      this.client.users.cache.clear();
+    }
     // A previous destroy() must not leave this new session marked as destroyed
     this.destroyed = false;
-    if (this._ws && this._ws.token !== this.client.token) {
-      await this._ws.destroy({ code: CloseCodes.Normal, reason: 'Login with differing token requested' });
-      this._ws = null;
-    }
     if (!this._ws) {
       const wsOptions = {
         // User accounts send no intents (undefined is dropped from the IDENTIFY by JSON.stringify).
@@ -175,8 +178,7 @@ class WebSocketManager extends EventEmitter {
       // Spoof the web-client IDENTIFY (properties here, capabilities/client_state via the shard-send patch).
       wsOptions.identifyProperties = this.client._userProperties.superProperties;
       patchUserIdentify();
-      if (ws.buildIdentifyThrottler) wsOptions.buildIdentifyThrottler = ws.buildIdentifyThrottler;
-      if (ws.buildStrategy) wsOptions.buildStrategy = ws.buildStrategy;
+      registerUserClient(wsOptions.identifyProperties, this.client);
       this._ws = new WSWebSocketManager(wsOptions);
       // setToken keeps the token in a private field instead of the inspectable options object
       this._ws.setToken(this.client.token);
@@ -215,25 +217,6 @@ class WebSocketManager extends EventEmitter {
     await this._ws.connect().catch(error => {
       // With no /gateway/bot request to reject it early, a bad token surfaces as the gateway closing with 4004.
       throw error.message === 'Authentication failed' ? invalidToken : error;
-    });
-
-    this.shards.forEach(shard => {
-      if (shard.listenerCount(WebSocketShardEvents.InvalidSession) > 0 && !deprecationEmittedForInvalidSessionEvent) {
-        process.emitWarning(
-          'The WebSocketShard#invalidSession event is deprecated and will never emit.',
-          'DeprecationWarning',
-        );
-
-        deprecationEmittedForInvalidSessionEvent = true;
-      }
-      if (shard.listenerCount(WebSocketShardEvents.Destroyed) > 0 && !deprecationEmittedForDestroyedEvent) {
-        process.emitWarning(
-          'The WebSocketShard#destroyed event is deprecated and will never emit.',
-          'DeprecationWarning',
-        );
-
-        deprecationEmittedForDestroyedEvent = true;
-      }
     });
   }
 
@@ -337,7 +320,11 @@ class WebSocketManager extends EventEmitter {
    */
   broadcast(packet) {
     if (!this._ws) return;
-    for (const shardId of this.shards.keys()) this._ws.send(shardId, packet);
+    for (const shardId of this.shards.keys()) {
+      Promise.resolve(this._ws.send(shardId, packet)).catch(error => {
+        if (!this.destroyed) this.client.emit(Events.ShardError, error, shardId);
+      });
+    }
   }
 
   /**

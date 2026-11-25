@@ -29,8 +29,6 @@ const IntentsBitField = require('../util/IntentsBitField');
 const Status = require('../util/Status');
 const Sweepers = require('../util/Sweepers');
 
-let deprecationEmittedForPremiumStickerPacks = false;
-
 /**
  * The main hub for interacting with the Discord API, and the starting point for any bot.
  * @extends {BaseClient}
@@ -128,6 +126,8 @@ class Client extends BaseClient {
      * @type {?number}
      */
     this.readyTimestamp = null;
+
+    this._destroyed = false;
   }
 
   /**
@@ -173,6 +173,11 @@ class Client extends BaseClient {
     if (!token || typeof token !== 'string') throw new DiscordjsError(ErrorCodes.TokenInvalid);
     this.token = token = token.replace(/^(Bot|Bearer)\s*/i, '');
     this.rest.setToken(token);
+    if (this._destroyed) {
+      this._destroyed = false;
+      this.sweepers = new Sweepers(this, this.options.sweepers);
+      this.rest.setupSweepers?.();
+    }
     this.emit(Events.Debug, `Provided token: ${this._censoredToken}`);
 
     if (Object.keys(this.options.presence).length) {
@@ -200,7 +205,7 @@ class Client extends BaseClient {
    * @param {string} password Password of the account
    * @param {Object} [options] Login options
    * @param {string} [options.totpSecret] A TOTP (authenticator) secret; when MFA is required and TOTP is
-   * available, the code is generated automatically with otplib, so no `mfa` handler is needed for TOTP.
+   * available, the code is generated automatically, so no `mfa` handler is needed for TOTP.
    * @param {Function} [options.captcha] `async challenge => captchaKey`; resolves a captcha challenge to its
    * solved key. Without it, a captcha challenge throws {@link DiscordjsErrorCodes.CaptchaRequired}.
    * @param {Function} [options.mfa] `async context => ({ method, code })`; returns the MFA method
@@ -256,12 +261,8 @@ class Client extends BaseClient {
     if (!data.mfa) return data.token;
     // A stored TOTP secret resolves the common case automatically, without an mfa handler.
     if (totpSecret && data.totp) {
-      const { generate, createGuardrails } = require('otplib');
-      // Discord 2FA secrets are 16 base32 chars (10 bytes), below otplib's default 16-byte (128-bit) guardrail.
-      // Keys are often shown in groups of four ("ABCD EFGH ..."); base32 decoding rejects the spaces.
-      const secret = totpSecret.replace(/\s/g, '');
-      const code = await generate({ secret, guardrails: createGuardrails({ MIN_SECRET_BYTES: 10 }) });
-      return this._submitMfa('totp', code, data);
+      const { generateTotp } = require('./Totp');
+      return this._submitMfa('totp', generateTotp(totpSecret), data);
     }
     if (!mfa) {
       const available = ['totp', 'sms', 'backup', 'webauthn'].filter(name => data[name]);
@@ -273,7 +274,11 @@ class Client extends BaseClient {
       sms: Boolean(data.sms),
       backup: Boolean(data.backup),
       webauthn: Boolean(data.webauthn),
-      sendSms: () => this.rest.post('/auth/mfa/sms/send', { body: { ticket: data.ticket }, auth: false }),
+      sendSms: () =>
+        this.rest.post('/auth/mfa/sms/send', { body: { ticket: data.ticket }, auth: false }).catch(error => {
+          if (error?.requestBody) delete error.requestBody;
+          throw error;
+        }),
     });
     if (!['totp', 'sms', 'backup'].includes(method)) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'mfa method', "one of 'totp', 'sms', 'backup'");
@@ -339,10 +344,15 @@ class Client extends BaseClient {
     const start = await this.rest.post('/auth/conditional/start', { auth: false });
     const { challenge, rpId } = JSON.parse(start.challenge).publicKey;
     const credential = buildAssertion(passkey, rpId ?? 'discord.com', challenge);
-    const { token } = await this.rest.post('/auth/conditional/finish', {
-      auth: false,
-      body: { credential, ticket: start.ticket },
-    });
+    const { token } = await this.rest
+      .post('/auth/conditional/finish', {
+        auth: false,
+        body: { credential, ticket: start.ticket },
+      })
+      .catch(error => {
+        if (error?.requestBody) delete error.requestBody;
+        throw error;
+      });
     if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
     return this.login(token);
   }
@@ -367,7 +377,13 @@ class Client extends BaseClient {
     await this.ws.destroy();
     this.token = null;
     this.readyTimestamp = null;
+    this.user = null;
+    this.application = null;
+    this.guilds.cache.clear();
+    this.channels.cache.clear();
+    this.users.cache.clear();
     this.rest.setToken(null);
+    this._destroyed = true;
   }
 
   /**
@@ -484,24 +500,6 @@ class Client extends BaseClient {
 
     const data = await this.rest.get(Routes.stickerPacks());
     return new Collection(data.sticker_packs.map(stickerPack => [stickerPack.id, new StickerPack(this, stickerPack)]));
-  }
-
-  /**
-   * Obtains the list of available sticker packs.
-   * @returns {Promise<Collection<Snowflake, StickerPack>>}
-   * @deprecated Use {@link Client#fetchStickerPacks} instead.
-   */
-  fetchPremiumStickerPacks() {
-    if (!deprecationEmittedForPremiumStickerPacks) {
-      process.emitWarning(
-        'The Client#fetchPremiumStickerPacks() method is deprecated. Use Client#fetchStickerPacks() instead.',
-        'DeprecationWarning',
-      );
-
-      deprecationEmittedForPremiumStickerPacks = true;
-    }
-
-    return this.fetchStickerPacks();
   }
 
   /**

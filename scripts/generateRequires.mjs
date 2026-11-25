@@ -5,8 +5,8 @@ async function writeWebsocketHandlerImports() {
 
   const handlersDirectory = new URL('../src/client/websocket/handlers', import.meta.url);
 
-  for (const file of await (await readdir(handlersDirectory)).sort()) {
-    if (file === 'index.js') continue;
+  for (const file of (await readdir(handlersDirectory)).sort()) {
+    if (!file.endsWith('.js') || file === 'index.js') continue;
 
     lines.push(`  ['${file.slice(0, -3)}', require('./${file.slice(0, -3)}')],`);
   }
@@ -34,7 +34,7 @@ async function writeClientActionImports() {
 
   const actionsDirectory = new URL('../src/client/actions', import.meta.url);
   for (const file of (await readdir(actionsDirectory)).sort()) {
-    if (file === 'Action.js' || file === 'ActionsManager.js') continue;
+    if (!file.endsWith('.js') || file === 'Action.js' || file === 'ActionsManager.js') continue;
 
     const actionName = file.slice(0, -3);
 

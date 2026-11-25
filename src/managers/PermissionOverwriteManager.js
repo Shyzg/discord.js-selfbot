@@ -1,6 +1,5 @@
 'use strict';
 
-const process = require('node:process');
 const { Collection } = require('@discordjs/collection');
 const { OverwriteType, Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
@@ -8,22 +7,15 @@ const { DiscordjsTypeError, ErrorCodes } = require('../errors');
 const PermissionOverwrites = require('../structures/PermissionOverwrites');
 const { Role } = require('../structures/Role');
 
-let cacheWarningEmitted = false;
-
 /**
  * Manages API methods for guild channel permission overwrites and stores their cache.
  * @extends {CachedManager}
  */
 class PermissionOverwriteManager extends CachedManager {
+  static _warnOnCacheOverride = true;
+
   constructor(channel, iterable) {
     super(channel.client, PermissionOverwrites);
-    if (!cacheWarningEmitted && this._cache.constructor.name !== 'Collection') {
-      cacheWarningEmitted = true;
-      process.emitWarning(
-        `Overriding the cache handling for ${this.constructor.name} is unsupported and breaks functionality.`,
-        'UnsupportedCacheOverwriteWarning',
-      );
-    }
 
     /**
      * The channel of the permission overwrite this manager belongs to

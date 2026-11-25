@@ -105,7 +105,7 @@ class Integration extends Base {
        * The timestamp at which this integration was last synced at
        * @type {?number}
        */
-      this.syncedTimestamp = Date.parse(data.synced_at);
+      this.syncedTimestamp = data.synced_at ? Date.parse(data.synced_at) : null;
     } else {
       this.syncedTimestamp ??= null;
     }

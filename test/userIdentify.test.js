@@ -11,6 +11,7 @@ const { applyUserIdentify, CAPABILITIES, createUserProperties } = require('../sr
 const {
   isUserIdentify,
   patchUserIdentify,
+  registerUserClient,
   TOO_MANY_SESSIONS_CLOSE_CODE,
 } = require('../src/client/websocket/userIdentify');
 
@@ -118,4 +119,35 @@ test('user shard stops reconnecting on close code 4015 (Too Many Sessions)', asy
   ]);
   assert.deepEqual(destroyOptions, { code: 4015 });
   assert.equal('recover' in destroyOptions, false);
+});
+
+test('user shard sends rotated client.token on IDENTIFY and RESUME after token update', async () => {
+  patchUserIdentify();
+  const client = new Client();
+  client.token = 'INITIAL_TOKEN';
+  const { superProperties } = client._userProperties;
+  registerUserClient(superProperties, client);
+
+  const strategy = {
+    options: {
+      token: 'INITIAL_TOKEN',
+      identifyProperties: superProperties,
+      intents: undefined,
+      shardCount: 1,
+      compression: null,
+    },
+    waitForIdentify: async () => {},
+  };
+  const shard = new WebSocketShard(strategy, 0);
+  const sent = [];
+  shard.connection = { send: data => sent.push(JSON.parse(data)), readyState: 1 };
+
+  // Rotate token (as ClientUser#_patch does after setUsername) without re-creating @discordjs/ws
+  client.token = 'ROTATED_TOKEN';
+  await shard.send({ op: GatewayOpcodes.Identify, d: { token: 'INITIAL_TOKEN', properties: superProperties } });
+  await shard.send({ op: GatewayOpcodes.Resume, d: { token: 'INITIAL_TOKEN', session_id: 's1', seq: 42 } });
+
+  assert.equal(sent[0].d.token, 'ROTATED_TOKEN');
+  assert.equal(sent[1].d.token, 'ROTATED_TOKEN');
+  await client.destroy();
 });
