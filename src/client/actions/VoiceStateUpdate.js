@@ -13,7 +13,13 @@ class VoiceStateUpdate extends Action {
       const oldState =
         guild.voiceStates.cache.get(data.user_id)?._clone() ?? new VoiceState(guild, { user_id: data.user_id });
 
-      const newState = guild.voiceStates._add(data);
+      let newState;
+      if (data.channel_id === null) {
+        newState = guild.voiceStates._add(data, false);
+        guild.voiceStates.cache.delete(data.user_id);
+      } else {
+        newState = guild.voiceStates._add(data);
+      }
 
       // Get the member
       let member = guild.members.cache.get(data.user_id);
@@ -24,7 +30,7 @@ class VoiceStateUpdate extends Action {
       }
 
       // Emit event
-      if (member?.user.id === client.user.id) {
+      if (data.user_id === client.user?.id) {
         client.emit(Events.Debug, `[VOICE] received voice state update: ${JSON.stringify(data)}`);
         client.voice.onVoiceStateUpdate(data);
       }

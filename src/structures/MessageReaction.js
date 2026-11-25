@@ -117,15 +117,10 @@ class MessageReaction {
   get emoji() {
     if (this._emoji instanceof GuildEmoji) return this._emoji;
     // Check to see if the emoji has become known to the client
-    if (this._emoji.id) {
-      for (const guild of this.message.client.guilds.cache.values()) {
-        if (!guild.available) continue;
-        const emoji = guild.emojis.cache.get(this._emoji.id);
-        if (emoji) {
-          this._emoji = emoji;
-          return emoji;
-        }
-      }
+    const emoji = this.message.client._findGuildEmoji(this._emoji.id);
+    if (emoji) {
+      this._emoji = emoji;
+      return emoji;
     }
     return this._emoji;
   }
@@ -162,12 +157,13 @@ class MessageReaction {
   _add(user, burst) {
     if (this.partial) return;
     this.users.cache.set(user.id, user);
-    if (!this.me || user.id !== this.message.client.user.id || this.count === 0) {
+    const selfId = this.message.client.user?.id;
+    if (!(burst ? this.meBurst : this.me) || user.id !== selfId || this.count === 0) {
       this.count++;
       if (burst) this.countDetails.burst++;
       else this.countDetails.normal++;
     }
-    if (user.id === this.message.client.user.id) {
+    if (user.id === selfId) {
       if (burst) this.meBurst = true;
       else this.me = true;
     }
@@ -175,12 +171,16 @@ class MessageReaction {
   _remove(user, burst) {
     if (this.partial) return;
     this.users.cache.delete(user.id);
-    if (!this.me || user.id !== this.message.client.user.id) {
-      this.count--;
-      if (burst) this.countDetails.burst--;
-      else this.countDetails.normal--;
+    const selfId = this.message.client.user?.id;
+    if ((burst ? this.meBurst : this.me) || user.id !== selfId) {
+      if (this.count > 0) this.count--;
+      if (burst) {
+        if (this.countDetails.burst > 0) this.countDetails.burst--;
+      } else if (this.countDetails.normal > 0) {
+        this.countDetails.normal--;
+      }
     }
-    if (user.id === this.message.client.user.id) {
+    if (user.id === selfId) {
       if (burst) this.meBurst = false;
       else this.me = false;
     }

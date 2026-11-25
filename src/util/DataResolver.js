@@ -110,7 +110,7 @@ async function resolveFile(resource) {
 
   if (typeof resource === 'string') {
     if (/^https?:\/\//.test(resource)) {
-      const res = await fetch(resource);
+      const res = await fetch(resource, { signal: AbortSignal.timeout(30_000) });
       if (!res.ok) throw new Error(`Failed to fetch ${resource}: HTTP ${res.status}`);
       return { data: Buffer.from(await res.arrayBuffer()), contentType: res.headers.get('content-type') };
     }

@@ -238,7 +238,10 @@ client.on('autoModerationRuleUpdate', (oldAutoModerationRule, { client: newClien
 
 client.on('channelCreate', ({ client }) => expectType<Client<true>>(client));
 client.on('channelDelete', ({ client }) => expectType<Client<true>>(client));
-client.on('channelPinsUpdate', ({ client }) => expectType<Client<true>>(client));
+client.on('channelPinsUpdate', ({ client }, date) => {
+  expectType<Client<true>>(client);
+  expectType<Date | null>(date);
+});
 
 client.on('channelUpdate', ({ client: oldClient }, { client: newClient }) => {
   expectType<Client<true>>(oldClient);

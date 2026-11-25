@@ -1,6 +1,7 @@
 'use strict';
 
 const Action = require('./Action');
+const Invite = require('../../structures/Invite');
 const Events = require('../../util/Events');
 
 class InviteCreateAction extends Action {
@@ -11,7 +12,7 @@ class InviteCreateAction extends Action {
     if (!channel) return false;
 
     const inviteData = Object.assign(data, { channel, guild });
-    const invite = guild.invites._add(inviteData);
+    const invite = guild ? guild.invites._add(inviteData) : new Invite(client, inviteData);
 
     /**
      * Emitted when an invite is created.

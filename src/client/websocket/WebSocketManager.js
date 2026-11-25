@@ -95,6 +95,7 @@ class WebSocketManager extends EventEmitter {
      * @name WebSocketManager#packetQueue
      */
     Object.defineProperty(this, 'packetQueue', { value: [] });
+    Object.defineProperty(this, '_drainingPacketQueue', { value: false, writable: true });
 
     /**
      * The current status of this WebSocketManager
@@ -342,6 +343,7 @@ class WebSocketManager extends EventEmitter {
     this._ws = null;
     this.status = Status.Idle;
     this.packetQueue.length = 0;
+    this._drainingPacketQueue = false;
     for (const shard of this.shards.values()) {
       if (shard.readyTimeout) {
         clearTimeout(shard.readyTimeout);
@@ -367,13 +369,21 @@ class WebSocketManager extends EventEmitter {
         this.packetQueue.push({ packet, shard });
         return false;
       }
+      if (PacketHandlers[packet.t]) {
+        PacketHandlers[packet.t](this.client, packet, shard);
+      }
+      return true;
     }
 
-    if (this.packetQueue.length) {
-      const item = this.packetQueue.shift();
-      setImmediate(() => {
-        this.handlePacket(item.packet, item.shard);
-      }).unref();
+    if (this.packetQueue.length || this._drainingPacketQueue) {
+      if (packet) {
+        this.packetQueue.push({ packet, shard });
+      }
+      if (!this._drainingPacketQueue && this.packetQueue.length) {
+        this._drainingPacketQueue = true;
+        setImmediate(() => this._drainPacketQueue());
+      }
+      return !packet;
     }
 
     if (packet && PacketHandlers[packet.t]) {
@@ -381,6 +391,30 @@ class WebSocketManager extends EventEmitter {
     }
 
     return true;
+  }
+
+  /**
+   * Drains queued gateway packets in FIFO order once the manager is ready.
+   * @private
+   */
+  _drainPacketQueue() {
+    if (this.destroyed || this.status !== Status.Ready || !this.packetQueue.length) {
+      this._drainingPacketQueue = false;
+      return;
+    }
+
+    const item = this.packetQueue.shift();
+    try {
+      if (PacketHandlers[item.packet.t]) {
+        PacketHandlers[item.packet.t](this.client, item.packet, item.shard);
+      }
+    } finally {
+      if (this.packetQueue.length && !this.destroyed && this.status === Status.Ready) {
+        setImmediate(() => this._drainPacketQueue());
+      } else {
+        this._drainingPacketQueue = false;
+      }
+    }
   }
 
   /**

@@ -27,6 +27,7 @@ const RoleManager = require('../managers/RoleManager');
 const StageInstanceManager = require('../managers/StageInstanceManager');
 const VoiceStateManager = require('../managers/VoiceStateManager');
 const { resolveImage } = require('../util/DataResolver');
+const Events = require('../util/Events');
 const Status = require('../util/Status');
 const SystemChannelFlagsBitField = require('../util/SystemChannelFlagsBitField');
 const { _transformAPIIncidentsData } = require('../util/Transformers.js');
@@ -899,6 +900,7 @@ class Guild extends AnonymousGuild {
     preferredLocale,
     premiumProgressBarEnabled,
     safetyAlertsChannel,
+    reason,
     ...options
   }) {
     const data = await this.client.rest.patch(Routes.guild(this.id), {
@@ -923,7 +925,7 @@ class Guild extends AnonymousGuild {
         premium_progress_bar_enabled: premiumProgressBarEnabled,
         safety_alerts_channel_id: safetyAlertsChannel && this.client.channels.resolveId(safetyAlertsChannel),
       },
-      reason: options.reason,
+      reason,
     });
 
     return this.client.actions.GuildUpdate.handle(data).updated;
@@ -1463,8 +1465,10 @@ class Guild extends AnonymousGuild {
       this.client.voice.adapters.set(this.id, methods);
       return {
         sendPayload: data => {
-          if (this.shard.status !== Status.Ready) return false;
-          this.shard.send(data);
+          if (this.shard?.status !== Status.Ready) return false;
+          Promise.resolve(this.shard.send(data)).catch(error => {
+            if (!this.client.ws.destroyed) this.client.emit(Events.ShardError, error, this.shardId);
+          });
           return true;
         },
         destroy: () => {

@@ -165,7 +165,7 @@ class MessagePayload {
     }
 
     let message_reference;
-    if (typeof this.options.reply === 'object') {
+    if (this.options.reply && typeof this.options.reply === 'object') {
       const reference = this.options.reply.messageReference;
       const message_id = this.isMessage ? (reference.id ?? reference) : this.target.messages.resolveId(reference);
       if (message_id) {
@@ -176,7 +176,7 @@ class MessagePayload {
       }
     }
 
-    if (typeof this.options.forward === 'object') {
+    if (this.options.forward && typeof this.options.forward === 'object') {
       const reference = this.options.forward.message;
       const channel_id = reference.channelId ?? this.target.client.channels.resolveId(this.options.forward.channel);
       const guild_id = reference.guildId ?? this.target.client.guilds.resolveId(this.options.forward.guild);

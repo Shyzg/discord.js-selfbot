@@ -154,9 +154,9 @@ class Poll extends Base {
    * @returns {Promise<Poll>}
    */
   async fetch() {
-    await this.channel.messages.fetch({ message: this.messageId, force: true });
+    const message = await this.channel.messages.fetch({ message: this.messageId, force: true });
 
-    return this;
+    return message.poll ?? this;
   }
 
   /**

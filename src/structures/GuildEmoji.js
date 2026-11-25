@@ -135,11 +135,12 @@ class GuildEmoji extends BaseGuildEmoji {
         other.roles.cache.every(role => this.roles.cache.has(role.id))
       );
     } else {
+      const otherRoles = other.roles ?? [];
       return (
         other.id === this.id &&
         other.name === this.name &&
-        other.roles.length === this.roles.cache.size &&
-        other.roles.every(role => this.roles.cache.has(role))
+        otherRoles.length === this.roles.cache.size &&
+        otherRoles.every(role => this.roles.cache.has(role))
       );
     }
   }
