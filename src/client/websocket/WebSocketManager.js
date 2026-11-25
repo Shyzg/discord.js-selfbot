@@ -148,6 +148,7 @@ class WebSocketManager extends EventEmitter {
     const invalidToken = new DiscordjsError(ErrorCodes.TokenInvalid);
     const { ws } = this.client.options;
     if (this._ws && this._ws.token !== this.client.token) {
+      this.client.voice.destroy();
       await this.destroy();
       this.client.readyTimestamp = null;
       this.client.user = null;

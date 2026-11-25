@@ -37,8 +37,8 @@ class MessageCollector extends Collector {
      */
     this.received = 0;
 
-    const bulkDeleteListener = messages => {
-      for (const message of messages.values()) this.handleDispose(message);
+    const bulkDeleteListener = async messages => {
+      await Promise.all([...messages.values()].map(message => this.handleDispose(message)));
     };
 
     this._handleChannelDeletion = this._handleChannelDeletion.bind(this);

@@ -34,7 +34,6 @@ exports.Collection = require('@discordjs/collection').Collection;
 exports.Constants = require('./util/Constants');
 exports.Colors = require('./util/Colors');
 exports.Events = require('./util/Events');
-exports.Formatters = require('./util/Formatters');
 exports.GuildMemberFlagsBitField = require('./util/GuildMemberFlagsBitField').GuildMemberFlagsBitField;
 exports.IntentsBitField = require('./util/IntentsBitField');
 exports.InviteFlagsBitField = require('./util/InviteFlagsBitField.js').InviteFlagsBitField;

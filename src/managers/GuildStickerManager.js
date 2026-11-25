@@ -108,9 +108,10 @@ class GuildStickerManager extends CachedManager {
     const stickerId = this.resolveId(sticker);
     if (!stickerId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'sticker', 'StickerResolvable');
 
+    const { name, description, tags, reason } = options;
     const d = await this.client.rest.patch(Routes.guildSticker(this.guild.id, stickerId), {
-      body: options,
-      reason: options.reason,
+      body: { name, description, tags },
+      reason,
     });
 
     const existing = this.cache.get(stickerId);

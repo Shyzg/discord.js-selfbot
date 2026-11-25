@@ -32,9 +32,6 @@ importers:
       discord-api-types:
         specifier: ^0.38.60
         version: 0.38.60
-      magic-bytes.js:
-        specifier: ^1.13.1
-        version: 1.13.1
       qr:
         specifier: ^0.7.2
         version: 0.7.2

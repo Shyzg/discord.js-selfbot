@@ -3,6 +3,7 @@
 const { Collection } = require('@discordjs/collection');
 const { Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
+const { DiscordjsTypeError, ErrorCodes } = require('../errors');
 const AutoModerationRule = require('../structures/AutoModerationRule');
 
 /**
@@ -177,6 +178,9 @@ class AutoModerationRuleManager extends CachedManager {
     { name, eventType, triggerMetadata, actions, enabled, exemptRoles, exemptChannels, reason },
   ) {
     const autoModerationRuleId = this.resolveId(autoModerationRule);
+    if (!autoModerationRuleId) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'autoModerationRule', 'AutoModerationRuleResolvable');
+    }
 
     const data = await this.client.rest.patch(Routes.guildAutoModerationRule(this.guild.id, autoModerationRuleId), {
       body: {
@@ -285,6 +289,9 @@ class AutoModerationRuleManager extends CachedManager {
    */
   async delete(autoModerationRule, reason) {
     const autoModerationRuleId = this.resolveId(autoModerationRule);
+    if (!autoModerationRuleId) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'autoModerationRule', 'AutoModerationRuleResolvable');
+    }
     await this.client.rest.delete(Routes.guildAutoModerationRule(this.guild.id, autoModerationRuleId), { reason });
   }
 }

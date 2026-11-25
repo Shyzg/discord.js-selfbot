@@ -263,7 +263,7 @@ class Guild extends AnonymousGuild {
        * The timestamp the client user joined the guild at
        * @type {number}
        */
-      this.joinedTimestamp = Date.parse(data.joined_at);
+      this.joinedTimestamp = data.joined_at ? Date.parse(data.joined_at) : null;
     }
 
     if ('default_message_notifications' in data) {
@@ -510,7 +510,7 @@ class Guild extends AnonymousGuild {
    * @readonly
    */
   get joinedAt() {
-    return new Date(this.joinedTimestamp);
+    return this.joinedTimestamp && new Date(this.joinedTimestamp);
   }
 
   /**

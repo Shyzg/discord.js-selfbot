@@ -1,14 +1,24 @@
 'use strict';
 
 const { Collection } = require('@discordjs/collection');
-const { lazy } = require('@discordjs/util');
 const { Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager.js');
 const { DiscordjsTypeError, ErrorCodes } = require('../errors/index.js');
 const { SoundboardSound } = require('../structures/SoundboardSound.js');
 const { resolveBase64, resolveFile } = require('../util/DataResolver.js');
 
-const fileTypeMime = lazy(() => require('magic-bytes.js').filetypemime);
+function sniffSoundMime(data) {
+  if (data.length >= 4 && data[0] === 0x4f && data[1] === 0x67 && data[2] === 0x67 && data[3] === 0x53) {
+    return 'audio/ogg';
+  }
+  if (
+    (data.length >= 3 && data[0] === 0x49 && data[1] === 0x44 && data[2] === 0x33) ||
+    (data.length >= 2 && data[0] === 0xff && (data[1] & 0xe0) === 0xe0)
+  ) {
+    return 'audio/mpeg';
+  }
+  return undefined;
+}
 
 /**
  * Manages API methods for Soundboard Sounds and stores their cache.
@@ -87,7 +97,7 @@ class GuildSoundboardSoundManager extends CachedManager {
   async create({ contentType, emojiId, emojiName, file, name, reason, volume }) {
     const resolvedFile = await resolveFile(file);
 
-    const resolvedContentType = contentType ?? resolvedFile.contentType ?? fileTypeMime()(resolvedFile.data)[0];
+    const resolvedContentType = contentType ?? resolvedFile.contentType ?? sniffSoundMime(resolvedFile.data);
 
     const sound = resolveBase64(resolvedFile.data, resolvedContentType);
 

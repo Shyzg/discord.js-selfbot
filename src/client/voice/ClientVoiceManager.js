@@ -39,6 +39,13 @@ class ClientVoiceManager {
       this.adapters.get(payload.guild_id)?.onVoiceStateUpdate(payload);
     }
   }
+
+  destroy() {
+    for (const adapter of this.adapters.values()) {
+      adapter.destroy();
+    }
+    this.adapters.clear();
+  }
 }
 
 module.exports = ClientVoiceManager;

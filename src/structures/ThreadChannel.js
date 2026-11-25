@@ -111,7 +111,9 @@ class ThreadChannel extends BaseChannel {
        * created</info>
        * @type {?number}
        */
-      this.archiveTimestamp = Date.parse(data.thread_metadata.archive_timestamp);
+      this.archiveTimestamp = data.thread_metadata.archive_timestamp
+        ? Date.parse(data.thread_metadata.archive_timestamp)
+        : null;
 
       if ('create_timestamp' in data.thread_metadata) {
         // Note: this is needed because we can't assign directly to getters

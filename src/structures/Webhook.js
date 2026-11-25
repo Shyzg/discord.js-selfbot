@@ -108,7 +108,7 @@ class Webhook {
        * The source guild of the webhook
        * @type {?(Guild|APIGuild)}
        */
-      this.sourceGuild = this.client.guilds?.cache.get(data.source_guild.id) ?? data.source_guild;
+      this.sourceGuild = this.client.guilds?.cache.get(data.source_guild?.id) ?? data.source_guild;
     } else {
       this.sourceGuild ??= null;
     }
@@ -279,7 +279,7 @@ class Webhook {
    * @param {WebhookEditOptions} options Options for editing the webhook
    * @returns {Promise<Webhook>}
    */
-  async edit({ name = this.name, avatar, channel, reason }) {
+  async edit({ name = this.name, avatar, channel, reason } = {}) {
     if (avatar && !(typeof avatar === 'string' && avatar.startsWith('data:'))) {
       avatar = await resolveImage(avatar);
     }
