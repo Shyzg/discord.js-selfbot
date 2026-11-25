@@ -239,7 +239,12 @@ class GuildBanManager extends CachedManager {
       throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
     }
 
-    const userIds = users.map(user => this.client.users.resolveId(user));
+    const userIds = [];
+    for (const user of users.values()) {
+      const id = this.client.users.resolveId(user);
+      if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidElement, 'Array or Collection', 'users', user);
+      userIds.push(id);
+    }
     if (userIds.length === 0) throw new DiscordjsError(ErrorCodes.BulkBanUsersOptionEmpty);
 
     const result = await this.client.rest.post(Routes.guildBulkBan(this.guild.id), {

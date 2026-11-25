@@ -104,8 +104,8 @@ class GuildEmojiRoleManager extends DataManager {
   }
 
   clone() {
-    const clone = new this.constructor(this.emoji);
-    clone._patch([...this.cache.keys()]);
+    const clone = new this.constructor(this.emoji._clone());
+    clone._patch(this.emoji._roles.slice());
     return clone;
   }
 

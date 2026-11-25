@@ -208,8 +208,8 @@ class GuildMemberRoleManager extends DataManager {
   }
 
   clone() {
-    const clone = new this.constructor(this.member);
-    clone.member._roles = [...this.cache.keys()];
+    const clone = new this.constructor(this.member._clone());
+    clone.member._roles = this.member._roles.slice();
     return clone;
   }
 }
