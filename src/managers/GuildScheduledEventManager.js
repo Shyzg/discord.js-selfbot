@@ -84,7 +84,9 @@ class GuildScheduledEventManager extends CachedManager {
    * @returns {Promise<GuildScheduledEvent>}
    */
   async create(options) {
-    if (typeof options !== 'object') throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    if (typeof options !== 'object' || options === null) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    }
     let {
       privacyLevel,
       entityType,
@@ -206,7 +208,9 @@ class GuildScheduledEventManager extends CachedManager {
     const guildScheduledEventId = this.resolveId(guildScheduledEvent);
     if (!guildScheduledEventId) throw new DiscordjsError(ErrorCodes.GuildScheduledEventResolve);
 
-    if (typeof options !== 'object') throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    if (typeof options !== 'object' || options === null) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    }
     let {
       privacyLevel,
       entityType,

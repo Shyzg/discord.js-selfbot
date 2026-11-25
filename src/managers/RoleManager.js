@@ -327,6 +327,7 @@ class RoleManager extends CachedManager {
    */
   async delete(role, reason) {
     const id = this.resolveId(role);
+    if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'role', 'RoleResolvable');
     await this.client.rest.delete(Routes.guildRole(this.guild.id, id), { reason });
     this.client.actions.GuildRoleDelete.handle({ guild_id: this.guild.id, role_id: id });
   }

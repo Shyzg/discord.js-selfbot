@@ -60,7 +60,9 @@ class StageInstanceManager extends CachedManager {
   async create(channel, options) {
     const channelId = this.guild.channels.resolveId(channel);
     if (!channelId) throw new DiscordjsError(ErrorCodes.StageChannelResolve);
-    if (typeof options !== 'object') throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    if (typeof options !== 'object' || options === null) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    }
     const { guildScheduledEvent, topic, privacyLevel, sendStartNotification } = options;
 
     const guildScheduledEventId = guildScheduledEvent && this.guild.scheduledEvents.resolveId(guildScheduledEvent);
@@ -121,7 +123,9 @@ class StageInstanceManager extends CachedManager {
    *  .catch(console.error);
    */
   async edit(channel, options) {
-    if (typeof options !== 'object') throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    if (typeof options !== 'object' || options === null) {
+      throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'options', 'object', true);
+    }
     const channelId = this.guild.channels.resolveId(channel);
     if (!channelId) throw new DiscordjsError(ErrorCodes.StageChannelResolve);
 

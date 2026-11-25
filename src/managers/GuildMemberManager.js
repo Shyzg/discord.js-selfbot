@@ -652,7 +652,9 @@ class GuildMemberManager extends CachedManager {
   async addRole(options) {
     const { user, role, reason } = options;
     const userId = this.resolveId(user);
+    if (!userId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
     const roleId = this.guild.roles.resolveId(role);
+    if (!roleId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'role', 'RoleResolvable');
     await this.client.rest.put(Routes.guildMemberRole(this.guild.id, userId, roleId), { reason });
 
     return this.resolve(user) ?? this.client.users.resolve(user) ?? userId;
@@ -666,7 +668,9 @@ class GuildMemberManager extends CachedManager {
   async removeRole(options) {
     const { user, role, reason } = options;
     const userId = this.resolveId(user);
+    if (!userId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
     const roleId = this.guild.roles.resolveId(role);
+    if (!roleId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'role', 'RoleResolvable');
     await this.client.rest.delete(Routes.guildMemberRole(this.guild.id, userId, roleId), { reason });
 
     return this.resolve(user) ?? this.client.users.resolve(user) ?? userId;

@@ -60,7 +60,6 @@
     "@discordjs/ws": "^2.0.4",
     "@sapphire/snowflake": "4.0.0",
     "discord-api-types": "^0.38.60",
-    "magic-bytes.js": "^1.13.1",
     "qr": "^0.7.2"
   },
   "devDependencies": {

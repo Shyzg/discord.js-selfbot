@@ -417,7 +417,7 @@ class Sweepers {
    */
   _validateProperties(key) {
     const props = this.options[key];
-    if (typeof props !== 'object') {
+    if (typeof props !== 'object' || props === null) {
       throw new DiscordjsTypeError(ErrorCodes.InvalidType, `sweepers.${key}`, 'object', true);
     }
     if (typeof props.interval !== 'number') {

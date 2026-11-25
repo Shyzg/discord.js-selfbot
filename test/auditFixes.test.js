@@ -18,6 +18,7 @@ const {
   ApplicationCommand,
   CategoryChannelChildManager,
   Client,
+  Collection,
   Constants,
   DiscordjsErrorCodes,
   DMChannel,
@@ -25,6 +26,7 @@ const {
   BaseGuildTextChannel,
   BaseGuildVoiceChannel,
   LimitedCollection,
+  MessageCollector,
   Options,
   PartialGroupDMMessageManager,
   ReactionCollector,
@@ -39,6 +41,7 @@ const {
   VoiceChannel,
   VoiceState,
   VoiceStateManager,
+  Webhook,
   WebhookClient,
   WebSocketShard,
   cleanContent,
@@ -628,4 +631,168 @@ test('dead options, deprecated DeletableMessageTypes, and bot-only ApplicationCo
   assert.equal(cmd.options[0].minLength, 1);
   assert.equal(cmd.options[0].maxLength, 10);
   client.destroy();
+});
+
+test('Poll#fetch forces a REST reload and updates cached poll vote counts in place', async () => {
+  const client = new Client();
+  const dm = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const msg = dm.messages._add({
+    id: '100',
+    channel_id: '10',
+    author: { id: '2', username: 'u' },
+    content: '',
+    type: 0,
+    poll: {
+      question: { text: 'Q?' },
+      answers: [{ answer_id: 1, poll_media: { text: 'A' } }],
+      allow_multiselect: false,
+      layout_type: 1,
+      expiry: null,
+    },
+  });
+
+  let restCalls = 0;
+  client.rest.get = async () => {
+    restCalls++;
+    return [
+      {
+        id: '100',
+        channel_id: '10',
+        author: { id: '2', username: 'u' },
+        content: '',
+        type: 0,
+        poll: {
+          question: { text: 'Q?' },
+          answers: [{ answer_id: 1, poll_media: { text: 'A' } }],
+          results: { is_finalized: true, answer_counts: [{ id: 1, count: 7, me_voted: false }] },
+          allow_multiselect: false,
+          layout_type: 1,
+          expiry: null,
+        },
+      },
+    ];
+  };
+
+  const refreshed = await msg.poll.fetch();
+  assert.equal(restCalls, 1);
+  assert.equal(refreshed, msg.poll);
+  assert.equal(refreshed.answers.get(1).voteCount, 7);
+  assert.equal(refreshed.resultsFinalized, true);
+  await client.destroy();
+});
+
+test('Client#destroy tears down active voice adapters and MessageCollector captures async bulk-delete filter errors', async () => {
+  const client = new Client();
+  let adapterDestroyed = false;
+  client.voice.adapters.set('1', {
+    destroy() {
+      adapterDestroyed = true;
+    },
+  });
+
+  const dm = client.channels._add({ id: '10', type: ChannelType.DM, recipients: [{ id: '2' }] });
+  const errors = [];
+  client.on(Events.Error, err => errors.push(err));
+  const collector = new MessageCollector(dm, {
+    dispose: true,
+    filter: async () => {
+      throw new Error('async filter failed');
+    },
+  });
+  const msg = dm.messages._add({ id: '777', channel_id: '10', author: { id: '2', username: 'u' }, content: 'x' });
+  collector.collected.set(msg.id, msg);
+  client.emit(Events.MessageBulkDelete, new Collection([[msg.id, msg]]));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /async filter failed/);
+  collector.stop();
+
+  await client.destroy();
+  assert.equal(adapterDestroyed, true);
+  assert.equal(client.voice.adapters.size, 0);
+});
+
+test('Webhook handles null source_guild and empty edit(), null options throw InvalidType, and null dates resolve to null', async () => {
+  const client = new Client();
+  const webhook = new Webhook(client, { id: '1', token: 'tok', name: 'w', source_guild: null, source_channel: null });
+  assert.equal(webhook.sourceGuild, null);
+  client.rest.patch = async () => ({ id: '1', name: 'w', avatar: null, channel_id: '2' });
+  await webhook.edit();
+
+  assert.throws(() => new Client({ sweepers: { threads: null } }), { code: DiscordjsErrorCodes.InvalidType });
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' }, joined_at: null });
+  assert.equal(guild.joinedTimestamp, null);
+  assert.equal(guild.joinedAt, null);
+
+  await assert.rejects(() => guild.bans.create('123', null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.bans.bulkCreate(['123'], null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.scheduledEvents.create(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.stageInstances.create('1', null), { code: DiscordjsErrorCodes.InvalidType });
+
+  const thread = client.channels._add(
+    {
+      id: '99',
+      type: ChannelType.PublicThread,
+      guild_id: '1',
+      name: 't',
+      thread_metadata: { archived: false, auto_archive_duration: 60, archive_timestamp: null, locked: false },
+    },
+    guild,
+  );
+  assert.equal(thread.archiveTimestamp, null);
+  assert.equal(thread.archivedAt, null);
+
+  await client.destroy();
+});
+
+test('manager ID validation, sticker edit body, soundboard MIME sniffing, and Formatters removal work cleanly', async () => {
+  const client = new Client();
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
+
+  let restCalls = 0;
+  client.rest.put = async () => {
+    restCalls++;
+  };
+  client.rest.delete = async () => {
+    restCalls++;
+  };
+  client.rest.patch = async () => {
+    restCalls++;
+    return {};
+  };
+
+  await assert.rejects(() => guild.members.addRole({ user: null, role: '2' }), {
+    code: DiscordjsErrorCodes.InvalidType,
+  });
+  await assert.rejects(() => guild.members.removeRole({ user: '1', role: null }), {
+    code: DiscordjsErrorCodes.InvalidType,
+  });
+  await assert.rejects(() => guild.roles.delete(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.autoModerationRules.edit(null, {}), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.autoModerationRules.delete(null), { code: DiscordjsErrorCodes.InvalidType });
+  assert.equal(restCalls, 0);
+
+  let stickerPatch;
+  client.rest.patch = async (_route, opts) => {
+    stickerPatch = opts;
+    return { id: '5', name: 'new', tags: 'tag', format_type: 1 };
+  };
+  await guild.stickers.edit('5', { name: 'new', tags: 'tag', reason: 'audit note' });
+  assert.equal('reason' in stickerPatch.body, false);
+  assert.equal(stickerPatch.reason, 'audit note');
+
+  const sounds = [];
+  client.rest.post = async (_route, opts) => {
+    sounds.push(opts.body.sound);
+    return { sound_id: '9', name: opts.body.name, volume: 1, available: true };
+  };
+  await guild.soundboardSounds.create({ file: Buffer.from([0x4f, 0x67, 0x67, 0x53, 0x00]), name: 'ogg' });
+  await guild.soundboardSounds.create({ file: Buffer.from([0x49, 0x44, 0x33, 0x03]), name: 'id3' });
+  await guild.soundboardSounds.create({ file: Buffer.from([0xff, 0xfb, 0x90, 0x00]), name: 'mp3' });
+  assert.ok(sounds[0].startsWith('data:audio/ogg;base64,'));
+  assert.ok(sounds[1].startsWith('data:audio/mpeg;base64,'));
+  assert.ok(sounds[2].startsWith('data:audio/mpeg;base64,'));
+
+  assert.equal('Formatters' in djs, false);
+  await client.destroy();
 });

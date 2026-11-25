@@ -374,6 +374,7 @@ class Client extends BaseClient {
     super.destroy();
 
     this.sweepers.destroy();
+    this.voice.destroy();
     await this.ws.destroy();
     this.token = null;
     this.readyTimestamp = null;
