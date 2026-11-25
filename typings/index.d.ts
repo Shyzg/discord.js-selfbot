@@ -4314,7 +4314,7 @@ export interface ClientEvents {
   cacheSweep: [message: string];
   channelCreate: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
   channelDelete: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
-  channelPinsUpdate: [channel: TextBasedChannel, date: Date];
+  channelPinsUpdate: [channel: TextBasedChannel, date: Date | null];
   channelUpdate: [
     oldChannel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel,
     newChannel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel,

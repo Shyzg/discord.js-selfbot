@@ -320,9 +320,9 @@ class GuildManager extends CachedManager {
       };
 
       const handler = (soundboardSounds, guild) => {
-        timeout.refresh();
-
         if (!remainingGuildIds.has(guild.id)) return;
+
+        timeout.refresh();
 
         fetchedSoundboardSounds.set(guild.id, soundboardSounds);
 

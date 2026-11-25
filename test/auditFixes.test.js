@@ -9,6 +9,7 @@ const { WebSocketShardEvents: WSWebSocketShardEvents } = require('@discordjs/ws'
 const {
   ActivityType,
   ApplicationCommandOptionType,
+  AuditLogEvent,
   ChannelType,
   MessageReferenceType,
   OverwriteType,
@@ -49,9 +50,15 @@ const {
   cleanContent,
 } = djs;
 const ClientUser = require('../src/structures/ClientUser');
+const GuildAuditLogsEntry = require('../src/structures/GuildAuditLogsEntry');
+const GuildEmoji = require('../src/structures/GuildEmoji');
+const { GuildOnboardingPromptOption } = require('../src/structures/GuildOnboardingPromptOption');
 const Integration = require('../src/structures/Integration');
 const Invite = require('../src/structures/Invite');
 const { Message } = require('../src/structures/Message');
+const WelcomeChannel = require('../src/structures/WelcomeChannel');
+const channelPinsUpdateHandler = require('../src/client/websocket/handlers/CHANNEL_PINS_UPDATE');
+const handlers = require('../src/client/websocket/handlers');
 const { resolveFile, resolveInviteCode } = require('../src/util/DataResolver');
 const { toSnakeCase } = require('../src/util/Transformers');
 
@@ -864,6 +871,275 @@ test('AttachmentBuilder spoiler edge cases, non-mutating role-manager clone, and
   await guild.members.edit('2', { communicationDisabledUntil: new Date('2030-01-01T00:00:00Z') });
   assert.equal('communicationDisabledUntil' in memberPatchBody, false);
   assert.equal(memberPatchBody.communication_disabled_until, '2030-01-01T00:00:00.000Z');
+
+  await client.destroy();
+});
+
+test('Group DM invites, voice routing/eviction, and voiceAdapterCreator shard errors are handled safely', async () => {
+  const client = new Client();
+  client.user = new ClientUser(client, { id: '100', username: 'me' });
+  client.channels._add({ id: '500', type: ChannelType.GroupDM, recipients: [] });
+
+  const emitted = [];
+  client.on(Events.InviteCreate, invite => emitted.push(['create', invite]));
+  client.on(Events.InviteDelete, invite => emitted.push(['delete', invite]));
+  client.actions.InviteCreate.handle({ channel_id: '500', code: 'gdm123' });
+  client.actions.InviteDelete.handle({ channel_id: '500', code: 'gdm123' });
+  assert.equal(emitted.length, 2);
+  assert.equal(emitted[0][0], 'create');
+  assert.ok(emitted[0][1] instanceof Invite);
+  assert.equal(emitted[0][1].code, 'gdm123');
+  assert.equal(emitted[1][0], 'delete');
+  assert.equal(emitted[1][1].code, 'gdm123');
+
+  const guild = client.guilds._add({ id: '1', properties: { name: 'G' }, shardId: 0 });
+  const voiceUpdates = [];
+  client.voice.onVoiceStateUpdate = payload => voiceUpdates.push(payload);
+
+  // Client's own guild member is NOT cached, yet voice state updates still route to client.voice
+  client.actions.VoiceStateUpdate.handle({ guild_id: '1', channel_id: '20', user_id: '100', session_id: 'sess-1' });
+  assert.equal(voiceUpdates.length, 1);
+  assert.equal(guild.voiceStates.cache.has('100'), true);
+
+  // Disconnecting (channel_id: null) evicts the stale voice state from cache
+  client.actions.VoiceStateUpdate.handle({ guild_id: '1', channel_id: null, user_id: '100', session_id: 'sess-1' });
+  assert.equal(voiceUpdates.length, 2);
+  assert.equal(guild.voiceStates.cache.has('100'), false);
+
+  // voiceAdapterCreator returns false when shard is absent and routes send rejections to ShardError
+  const adapter = guild.voiceAdapterCreator({ destroy: () => {} });
+  assert.equal(adapter.sendPayload({ op: 4, d: {} }), false);
+
+  const shardErrors = [];
+  client.on(Events.ShardError, (error, shardId) => shardErrors.push([error.message, shardId]));
+  client.ws.shards.set(0, { status: Status.Ready, send: () => Promise.reject(new Error('socket closed')) });
+  assert.equal(adapter.sendPayload({ op: 4, d: {} }), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(shardErrors, [['socket closed', 0]]);
+
+  await client.destroy();
+});
+
+test('WebSocketManager#handlePacket replays queued startup events in strict FIFO order', async t => {
+  const client = new Client();
+  const order = [];
+  handlers.__AUDIT_FIFO_TEST = (_c, packet) => order.push(packet.d.seq);
+  t.after(() => {
+    delete handlers.__AUDIT_FIFO_TEST;
+  });
+
+  client.ws.status = Status.Connecting;
+  client.ws.handlePacket({ t: '__AUDIT_FIFO_TEST', d: { seq: 1 } }, { id: 0 });
+  client.ws.handlePacket({ t: '__AUDIT_FIFO_TEST', d: { seq: 2 } }, { id: 0 });
+  // Whitelisted pre-ready packets must not shift or scramble queued events
+  client.ws.handlePacket({ t: 'RESUMED', d: {} }, { id: 0 });
+  client.ws.handlePacket({ t: '__AUDIT_FIFO_TEST', d: { seq: 3 } }, { id: 0 });
+
+  client.ws.status = Status.Ready;
+  client.ws.handlePacket({ t: '__AUDIT_FIFO_TEST', d: { seq: 4 } }, { id: 0 });
+
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.deepEqual(order, [1, 2, 3, 4]);
+  await client.destroy();
+});
+
+test('Poll#fetch after eviction, Guild#edit reason, InviteUpdate audit log, and channelPinsUpdate Date', async () => {
+  const client = new Client();
+  const ch = client.channels._add({ id: '200', type: ChannelType.DM, recipients: [{ id: '2', username: 'u' }] });
+  const msg = ch.messages._add({
+    id: '300',
+    channel_id: '200',
+    author: { id: '2', username: 'u' },
+    content: '',
+    timestamp: new Date().toISOString(),
+    poll: {
+      question: { text: 'Q' },
+      answers: [{ answer_id: 1, poll_media: { text: 'A' } }],
+      expiry: new Date(Date.now() + 60_000).toISOString(),
+      allow_multiselect: false,
+      layout_type: 1,
+      results: { is_finalized: false, answer_counts: [{ id: 1, count: 1, me_voted: false }] },
+    },
+  });
+  const stalePoll = msg.poll;
+  ch.messages.cache.delete('300');
+  client.rest.get = async () => [
+    {
+      id: '300',
+      channel_id: '200',
+      author: { id: '2', username: 'u' },
+      content: '',
+      timestamp: new Date().toISOString(),
+      poll: {
+        question: { text: 'Q' },
+        answers: [{ answer_id: 1, poll_media: { text: 'A' } }],
+        expiry: new Date(Date.now() + 60_000).toISOString(),
+        allow_multiselect: false,
+        layout_type: 1,
+        results: { is_finalized: true, answer_counts: [{ id: 1, count: 42, me_voted: true }] },
+      },
+    },
+  ];
+  const freshPoll = await stalePoll.fetch();
+  assert.equal(freshPoll.answers.get(1).voteCount, 42);
+  assert.equal(freshPoll.resultsFinalized, true);
+
+  const guild = client.guilds._add({ id: '1', properties: { name: 'Old' } });
+  let guildPatch;
+  client.rest.patch = async (_route, opts) => {
+    guildPatch = opts;
+    return { id: '1', name: 'New' };
+  };
+  await guild.edit({ name: 'New', reason: 'rename guild' });
+  assert.equal('reason' in guildPatch.body, false);
+  assert.equal(guildPatch.reason, 'rename guild');
+
+  const logs = {
+    webhooks: new Map(),
+    integrations: new Map(),
+    applicationCommands: new Map(),
+    autoModerationRules: new Map(),
+    threads: new Map(),
+  };
+  const entry = new GuildAuditLogsEntry(
+    guild,
+    { id: '99', action_type: AuditLogEvent.InviteUpdate, changes: [{ key: 'max_uses', old_value: 1, new_value: 5 }] },
+    logs,
+  );
+  assert.ok(entry.target instanceof Invite);
+  assert.equal(entry.target.maxUses, 5);
+
+  const pinEvents = [];
+  client.on(Events.ChannelPinsUpdate, (_channel, date) => pinEvents.push(date));
+  channelPinsUpdateHandler(client, { d: { channel_id: '200', last_pin_timestamp: '2025-01-01T00:00:00.000Z' } });
+  channelPinsUpdateHandler(client, { d: { channel_id: '200', last_pin_timestamp: null } });
+  assert.ok(pinEvents[0] instanceof Date);
+  assert.equal(pinEvents[0].toISOString(), '2025-01-01T00:00:00.000Z');
+  assert.equal(pinEvents[1], null);
+  assert.equal(ch.lastPinTimestamp, null);
+
+  await client.destroy();
+});
+
+test('emoji getters, uncached user role edits, Presence#member, invite/template guards, resolveFile signal, and payload/emoji edge cases', async t => {
+  const client = new Client();
+  const guild = client.guilds._add({
+    id: '1',
+    properties: { name: 'G' },
+    channels: [],
+    roles: [{ id: '10', name: 'r' }],
+    emojis: [{ id: '555', name: 'custom', roles: [] }],
+  });
+
+  // Direct guild emoji lookup without rebuilding client.emojis
+  Object.defineProperty(client, 'emojis', {
+    get() {
+      throw new Error('client.emojis getter should not be called');
+    },
+  });
+  const ch = client.channels._add({ id: '200', type: ChannelType.DM, recipients: [{ id: '2', username: 'u' }] });
+  const pollMsg = ch.messages._add({
+    id: '301',
+    channel_id: '200',
+    author: { id: '2', username: 'u' },
+    content: '',
+    timestamp: new Date().toISOString(),
+    poll: {
+      question: { text: 'Q' },
+      answers: [{ answer_id: 1, poll_media: { emoji: { id: '555', name: 'custom' } } }],
+      expiry: new Date(Date.now() + 60_000).toISOString(),
+      allow_multiselect: false,
+      layout_type: 1,
+    },
+  });
+  const answer = pollMsg.poll.answers.get(1);
+  assert.equal(answer.partial, false);
+  assert.equal(answer.emoji, guild.emojis.cache.get('555'));
+
+  const onboardingOpt = new GuildOnboardingPromptOption(
+    client,
+    { id: '1', channel_ids: [], role_ids: [], emoji: { id: '555', name: 'custom' }, title: 'T', description: null },
+    '1',
+  );
+  assert.equal(onboardingOpt.emoji, guild.emojis.cache.get('555'));
+
+  const welcomeCh = new WelcomeChannel(guild, {
+    channel_id: '200',
+    description: 'd',
+    emoji_id: '555',
+    emoji_name: 'custom',
+  });
+  assert.equal(welcomeCh.emoji, guild.emojis.cache.get('555'));
+
+  // Presence#member on ClientPresence (guild === null)
+  assert.equal(client.presence.member, null);
+
+  // addRole / removeRole accept uncached User instances
+  const user = client.users._add({ id: '999', username: 'bob', discriminator: '0' });
+  const roleRoutes = [];
+  client.rest.put = async route => roleRoutes.push(['PUT', route]);
+  client.rest.delete = async route => roleRoutes.push(['DELETE', route]);
+  const added = await guild.members.addRole({ user, role: '10' });
+  const removed = await guild.members.removeRole({ user, role: '10' });
+  assert.equal(added, user);
+  assert.equal(removed, user);
+  assert.deepEqual(roleRoutes, [
+    ['PUT', Routes.guildMemberRole('1', '999', '10')],
+    ['DELETE', Routes.guildMemberRole('1', '999', '10')],
+  ]);
+
+  // Invalid invite/template inputs reject locally without REST calls
+  let restCalls = 0;
+  client.rest.get = async () => {
+    restCalls++;
+    return {};
+  };
+  client.rest.delete = async () => {
+    restCalls++;
+  };
+  client.rest.put = async () => {
+    restCalls++;
+  };
+  await assert.rejects(() => client.fetchInvite(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => client.fetchGuildTemplate(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.invites.delete(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.invites.fetchTargetUsers(null), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.invites.updateTargetUsers(null, ['1']), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.invites.fetchTargetUsersJobStatus(null), { code: DiscordjsErrorCodes.InvalidType });
+  assert.equal(restCalls, 0);
+
+  // fetchSoundboardSounds does not extend timeout on unrelated guilds
+  client.ws.shards.set(0, { send: () => {} });
+  const unrelatedGuild = client.guilds._add({ id: '2', properties: { name: 'Other' } });
+  const soundPromise = client.guilds.fetchSoundboardSounds({ guildIds: ['1'], time: 35 });
+  const spam = setInterval(() => {
+    client.emit(Events.SoundboardSounds, new Collection(), unrelatedGuild);
+  }, 10);
+  t.after(() => clearInterval(spam));
+  await assert.rejects(() => soundPromise, { code: DiscordjsErrorCodes.GuildSoundboardSoundsTimeout });
+  clearInterval(spam);
+
+  // DataResolver.resolveFile passes an AbortSignal timeout to fetch
+  const origFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = origFetch;
+  });
+  let fetchInit;
+  globalThis.fetch = async (_url, init) => {
+    fetchInit = init;
+    return new Response('ok', { status: 200, headers: { 'content-type': 'text/plain' } });
+  };
+  await resolveFile('https://example.com/a.txt');
+  assert.ok(fetchInit?.signal instanceof AbortSignal);
+
+  // MessagePayload tolerates explicit null reply/forward
+  const payload = MessagePayload.create(ch, { content: 'hi', reply: null, forward: null }).resolveBody();
+  assert.equal(payload.body.content, 'hi');
+  assert.equal(payload.body.message_reference, undefined);
+
+  // GuildEmoji#equals tolerates raw API emoji without roles array
+  const emoji = new GuildEmoji(client, { id: '10', name: 'e', roles: [] }, guild);
+  assert.equal(emoji.equals({ id: '10', name: 'e' }), true);
 
   await client.destroy();
 });

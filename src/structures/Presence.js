@@ -67,7 +67,7 @@ class Presence extends Base {
    * @readonly
    */
   get member() {
-    return this.guild.members.resolve(this.userId);
+    return this.guild?.members.resolve(this.userId) ?? null;
   }
 
   _patch(data) {

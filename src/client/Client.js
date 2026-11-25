@@ -144,6 +144,22 @@ class Client extends BaseClient {
   }
 
   /**
+   * Looks up a custom emoji by id across available cached guilds without rebuilding {@link Client#emojis}.
+   * @param {?Snowflake} id The emoji id
+   * @returns {?GuildEmoji}
+   * @private
+   */
+  _findGuildEmoji(id) {
+    if (!id) return null;
+    for (const guild of this.guilds.cache.values()) {
+      if (!guild.available) continue;
+      const emoji = guild.emojis.cache.get(id);
+      if (emoji) return emoji;
+    }
+    return null;
+  }
+
+  /**
    * Time at which the client was last regarded as being in the {@link Status.Ready} state
    * (each time the client disconnects and successfully reconnects, this will be overwritten)
    * @type {?Date}
@@ -406,6 +422,7 @@ class Client extends BaseClient {
    */
   async fetchInvite(invite, options) {
     const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
     const query = makeURLSearchParams({
       with_counts: true,
       guild_scheduled_event_id: options?.guildScheduledEventId,
@@ -425,6 +442,7 @@ class Client extends BaseClient {
    */
   async fetchGuildTemplate(template) {
     const code = resolveGuildTemplateCode(template);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'template', 'GuildTemplateResolvable');
     const data = await this.rest.get(Routes.template(code));
     return new GuildTemplate(this, data);
   }

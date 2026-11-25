@@ -15,8 +15,8 @@ module.exports = (client, { d: data }) => {
      * not much information can be provided easily here - you need to manually check the pins yourself.
      * @event Client#channelPinsUpdate
      * @param {TextBasedChannels} channel The channel that the pins update occurred in
-     * @param {Date} time The time of the pins update
+     * @param {?Date} time The time of the pins update
      */
-    client.emit(Events.ChannelPinsUpdate, channel, time);
+    client.emit(Events.ChannelPinsUpdate, channel, time === null ? null : new Date(time));
   }
 };

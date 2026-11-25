@@ -4,7 +4,7 @@ const { Buffer } = require('node:buffer');
 const { Collection } = require('@discordjs/collection');
 const { Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
-const { DiscordjsError, ErrorCodes } = require('../errors');
+const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const Invite = require('../structures/Invite');
 const { resolveInviteCode, resolveInviteTargetUsersFile } = require('../util/DataResolver.js');
 const { _transformAPIInviteTargetUsersJobStatus } = require('../util/Transformers.js');
@@ -243,6 +243,7 @@ class GuildInviteManager extends CachedManager {
    */
   async delete(invite, reason) {
     const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
 
     await this.client.rest.delete(Routes.invite(code), { reason });
   }
@@ -255,6 +256,7 @@ class GuildInviteManager extends CachedManager {
    */
   async fetchTargetUsers(invite) {
     const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
     const arrayBuff = await this.client.rest.get(Routes.inviteTargetUsers(code));
 
     return Buffer.from(arrayBuff);
@@ -270,6 +272,7 @@ class GuildInviteManager extends CachedManager {
    */
   async updateTargetUsers(invite, targetUsersFile) {
     const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
 
     await this.client.rest.put(Routes.inviteTargetUsers(code), {
       files: [
@@ -291,6 +294,7 @@ class GuildInviteManager extends CachedManager {
    */
   async fetchTargetUsersJobStatus(invite) {
     const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
     const job = await this.client.rest.get(Routes.inviteTargetUsersJobStatus(code));
     return _transformAPIInviteTargetUsersJobStatus(job);
   }

@@ -88,9 +88,8 @@ class RemoteAuth {
           this.heartbeatAcked = false;
           this._send({ op: 'heartbeat' });
         }, message.heartbeat_interval);
-        if (message.timeout_ms) {
-          this.timeout = setTimeout(() => fail('remote auth session timed out'), message.timeout_ms);
-        }
+        const timeoutMs = message.timeout_ms > 0 ? message.timeout_ms : RemoteAuth.HANDSHAKE_TIMEOUT_MS;
+        this.timeout = setTimeout(() => fail('remote auth session timed out'), timeoutMs);
         this._send({ op: 'init', encoded_public_key: this.encodedPublicKey });
         break;
       case 'heartbeat_ack':

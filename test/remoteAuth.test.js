@@ -267,6 +267,24 @@ test('hello enforces heartbeat_ack and timeout_ms', async () => {
   assert.ok(timeouts.some(reason => /timed out/i.test(reason)));
 });
 
+test('hello without timeout_ms falls back to HANDSHAKE_TIMEOUT_MS instead of hanging', async t => {
+  const originalTimeout = RemoteAuth.HANDSHAKE_TIMEOUT_MS;
+  t.after(() => {
+    RemoteAuth.HANDSHAKE_TIMEOUT_MS = originalTimeout;
+  });
+  RemoteAuth.HANDSHAKE_TIMEOUT_MS = 20;
+  const remote = new RemoteAuth(userClient());
+  remote.ws = { send: () => {}, close: () => {} };
+  const failures = [];
+  await remote._handle(
+    { op: 'hello', heartbeat_interval: 1000 },
+    { resolve: () => {}, fail: reason => failures.push(reason) },
+  );
+  await setTimeout(40);
+  remote.destroy();
+  assert.ok(failures.some(reason => /timed out/i.test(reason)));
+});
+
 test('RemoteAuth#run times out if the gateway stalls before hello arrives', async t => {
   const originalWs = globalThis.WebSocket;
   const originalTimeout = RemoteAuth.HANDSHAKE_TIMEOUT_MS;
