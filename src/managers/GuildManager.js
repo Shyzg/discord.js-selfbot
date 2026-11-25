@@ -5,7 +5,7 @@ const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
 const { GatewayOpcodes, Routes, RouteBases } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
-const { ErrorCodes, DiscordjsError } = require('../errors/index.js');
+const { ErrorCodes, DiscordjsError, DiscordjsTypeError } = require('../errors/index.js');
 const { Guild } = require('../structures/Guild');
 const GuildChannel = require('../structures/GuildChannel');
 const GuildEmoji = require('../structures/GuildEmoji');
@@ -378,6 +378,7 @@ class GuildManager extends CachedManager {
    */
   async setIncidentActions(guild, { invitesDisabledUntil, dmsDisabledUntil }) {
     const guildId = this.resolveId(guild);
+    if (!guildId) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'guild', 'GuildResolvable');
 
     const data = await this.client.rest.put(Routes.guildIncidentActions(guildId), {
       body: {

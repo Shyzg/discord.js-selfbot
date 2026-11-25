@@ -411,7 +411,7 @@ class GuildMemberManager extends CachedManager {
    * @param {GuildMemberEditOptions} options The options to provide
    * @returns {Promise<GuildMember>}
    */
-  async edit(user, { reason, ...options }) {
+  async edit(user, { reason, communicationDisabledUntil, ...options }) {
     const id = this.client.users.resolveId(user);
     if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
 
@@ -428,11 +428,11 @@ class GuildMemberManager extends CachedManager {
     }
     options.roles &&= options.roles.map(role => (role instanceof Role ? role.id : role));
 
-    if (options.communicationDisabledUntil !== undefined) {
+    if (communicationDisabledUntil !== undefined) {
       options.communication_disabled_until =
-        options.communicationDisabledUntil != null
-          ? new Date(options.communicationDisabledUntil).toISOString()
-          : options.communicationDisabledUntil;
+        communicationDisabledUntil != null
+          ? new Date(communicationDisabledUntil).toISOString()
+          : communicationDisabledUntil;
     }
 
     if (options.flags !== undefined) {

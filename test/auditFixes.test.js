@@ -11,11 +11,13 @@ const {
   ApplicationCommandOptionType,
   ChannelType,
   MessageReferenceType,
+  OverwriteType,
   Routes,
 } = require('discord-api-types/v10');
 const djs = require('../src');
 const {
   ApplicationCommand,
+  AttachmentBuilder,
   CategoryChannelChildManager,
   Client,
   Collection,
@@ -794,5 +796,74 @@ test('manager ID validation, sticker edit body, soundboard MIME sniffing, and Fo
   assert.ok(sounds[2].startsWith('data:audio/mpeg;base64,'));
 
   assert.equal('Formatters' in djs, false);
+  await client.destroy();
+});
+
+test('AttachmentBuilder spoiler edge cases, non-mutating role-manager clone, and remaining null-ID / PATCH guards', async () => {
+  const unnamed = new AttachmentBuilder(Buffer.from('hi'));
+  assert.equal(unnamed.spoiler, false);
+  unnamed.setSpoiler(false);
+  assert.equal(unnamed.name, null);
+  unnamed.setSpoiler(true);
+  assert.equal(unnamed.name, 'SPOILER_file.jpg');
+  assert.equal(unnamed.spoiler, true);
+
+  const nested = new AttachmentBuilder(Buffer.from('hi'), { name: 'folder12/SPOILER_pic.png' });
+  assert.equal(nested.spoiler, true);
+  nested.setSpoiler(false);
+  assert.equal(nested.name, 'folder12/pic.png');
+  assert.equal(nested.spoiler, false);
+  nested.setSpoiler(true);
+  assert.equal(nested.name, 'folder12/SPOILER_pic.png');
+
+  const client = new Client();
+  client.user = new ClientUser(client, { id: '999', username: 'me' });
+  const guild = client.guilds._add({
+    id: '1',
+    properties: { name: 'G' },
+    roles: [{ id: '1', name: '@everyone', permissions: '0' }],
+  });
+  const ch = client.channels._add(
+    { id: '10', type: ChannelType.GuildText, guild_id: '1', name: 'general', permission_overwrites: [] },
+    guild,
+  );
+
+  // clone() must not mutate original member._roles or emoji._roles
+  const member = guild.members._add({ user: { id: '2', username: 'u' }, roles: ['uncached-role'] });
+  const clonedMemberRoles = member.roles.clone();
+  assert.deepEqual(member._roles, ['uncached-role']);
+  assert.notEqual(clonedMemberRoles.member, member);
+
+  const emoji = guild.emojis._add({ id: '50', name: 'e', roles: ['uncached-role'] });
+  const clonedEmojiRoles = emoji.roles.clone();
+  assert.deepEqual(emoji._roles, ['uncached-role']);
+  assert.notEqual(clonedEmojiRoles.emoji, emoji);
+
+  let restCalls = 0;
+  client.rest.put = async () => {
+    restCalls++;
+    return {};
+  };
+  client.rest.post = async () => {
+    restCalls++;
+    return {};
+  };
+  await assert.rejects(
+    () => ch.permissionOverwrites.create(null, { ViewChannel: false }, { type: OverwriteType.Role }),
+    { code: DiscordjsErrorCodes.InvalidType },
+  );
+  await assert.rejects(() => client.guilds.setIncidentActions(null, {}), { code: DiscordjsErrorCodes.InvalidType });
+  await assert.rejects(() => guild.bans.bulkCreate([null]), { code: DiscordjsErrorCodes.InvalidElement });
+  assert.equal(restCalls, 0);
+
+  let memberPatchBody;
+  client.rest.patch = async (_route, opts) => {
+    memberPatchBody = opts.body;
+    return { user: { id: '2', username: 'u' }, roles: [] };
+  };
+  await guild.members.edit('2', { communicationDisabledUntil: new Date('2030-01-01T00:00:00Z') });
+  assert.equal('communicationDisabledUntil' in memberPatchBody, false);
+  assert.equal(memberPatchBody.communication_disabled_until, '2030-01-01T00:00:00.000Z');
+
   await client.destroy();
 });

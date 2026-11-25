@@ -127,12 +127,14 @@ class AttachmentBuilder {
     if (spoiler === this.spoiler) return this;
 
     if (!spoiler) {
-      while (this.spoiler) {
-        this.name = this.name.slice('SPOILER_'.length);
-      }
+      this.name = this.name.replace(/(^|[\\/])(?:SPOILER_)+/, '$1');
       return this;
     }
-    this.name = `SPOILER_${this.name}`;
+    if (!this.name) {
+      this.name = 'SPOILER_file.jpg';
+      return this;
+    }
+    this.name = this.name.replace(/(^|[\\/])([^\\/]+)$/, '$1SPOILER_$2');
     return this;
   }
 
@@ -142,7 +144,7 @@ class AttachmentBuilder {
    * @readonly
    */
   get spoiler() {
-    return basename(this.name).startsWith('SPOILER_');
+    return Boolean(this.name && basename(this.name).startsWith('SPOILER_'));
   }
 
   toJSON() {
