@@ -119,13 +119,14 @@ class MessagePayload {
       }
     }
 
-    let enforce_nonce = Boolean(this.options.enforceNonce);
     const isEdit = (this.isMessage && !this.options.reply) || this.isMessageManager;
+    const defaultEnforceNonce = !isWebhook && !isEdit && this.target.client.options.enforceNonce;
+    let enforce_nonce = Boolean(this.options.enforceNonce ?? (nonce !== undefined && defaultEnforceNonce));
 
     // If `nonce` isn't provided on a user message send/reply, generate a snowflake nonce & set `enforce_nonce`
     // (matching Discord's web client) unless `enforceNonce` is explicitly set to `false`.
     if (nonce === undefined) {
-      if (!isWebhook && !isEdit && this.options.enforceNonce !== false && this.target.client.options.enforceNonce) {
+      if (defaultEnforceNonce && this.options.enforceNonce !== false) {
         nonce = DiscordSnowflake.generate().toString();
         enforce_nonce = true;
       } else if (enforce_nonce) {
@@ -191,18 +192,16 @@ class MessagePayload {
       }
     }
 
-    const attachments = this.options.files?.map((file, index) => ({
+    const fileAttachments = this.options.files?.map((file, index) => ({
       id: index.toString(),
-      description: file.description,
-      title: file.title,
-      waveform: file.waveform,
-      duration_secs: file.duration,
+      description: file?.description,
+      title: file?.title,
+      waveform: file?.waveform,
+      duration_secs: file?.duration,
     }));
-    if (Array.isArray(this.options.attachments)) {
-      this.options.attachments.push(...(attachments ?? []));
-    } else {
-      this.options.attachments = attachments;
-    }
+    const attachments = Array.isArray(this.options.attachments)
+      ? [...this.options.attachments, ...(fileAttachments ?? [])]
+      : fileAttachments;
 
     let poll;
     if (this.options.poll) {
@@ -251,12 +250,12 @@ class MessagePayload {
       username,
       avatar_url: avatarURL,
       allowed_mentions:
-        this.isMessage && message_reference === undefined && this.target.author.id !== this.target.client.user.id
+        this.isMessage && message_reference === undefined && this.target.author?.id !== this.target.client.user.id
           ? undefined
           : allowedMentions,
       flags,
       message_reference,
-      attachments: this.options.attachments,
+      attachments,
       sticker_ids: this.options.stickers?.map(sticker => sticker.id ?? sticker),
       thread_name: threadName,
       applied_tags: appliedTags,
@@ -291,7 +290,7 @@ class MessagePayload {
         return basename(thing);
       }
 
-      if (thing.path) {
+      if (thing?.path) {
         return basename(thing.path);
       }
 
@@ -299,7 +298,7 @@ class MessagePayload {
     };
 
     const ownAttachment =
-      typeof fileLike === 'string' || fileLike instanceof Buffer || typeof fileLike.pipe === 'function';
+      !fileLike || typeof fileLike === 'string' || fileLike instanceof Buffer || typeof fileLike.pipe === 'function';
     if (ownAttachment) {
       attachment = fileLike;
       name = findName(attachment);

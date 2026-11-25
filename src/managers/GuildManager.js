@@ -1,6 +1,5 @@
 'use strict';
 
-const process = require('node:process');
 const { setTimeout, clearTimeout } = require('node:timers');
 const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
@@ -21,22 +20,15 @@ const SystemChannelFlagsBitField = require('../util/SystemChannelFlagsBitField')
 const { _transformAPIIncidentsData } = require('../util/Transformers.js');
 const { resolveColor } = require('../util/Util');
 
-let cacheWarningEmitted = false;
-
 /**
  * Manages API methods for Guilds and stores their cache.
  * @extends {CachedManager}
  */
 class GuildManager extends CachedManager {
+  static _warnOnCacheOverride = true;
+
   constructor(client, iterable) {
     super(client, Guild, iterable);
-    if (!cacheWarningEmitted && this._cache.constructor.name !== 'Collection') {
-      cacheWarningEmitted = true;
-      process.emitWarning(
-        `Overriding the cache handling for ${this.constructor.name} is unsupported and breaks functionality.`,
-        'UnsupportedCacheOverwriteWarning',
-      );
-    }
   }
 
   /**
@@ -220,26 +212,37 @@ class GuildManager extends CachedManager {
       },
     });
 
-    return (
-      this.client.guilds.cache.get(data.id) ??
-      new Promise(resolve => {
-        const handleGuild = guild => {
-          if (guild.id === data.id) {
-            clearTimeout(timeout);
-            this.client.decrementMaxListeners();
-            resolve(guild);
-          }
-        };
-        this.client.incrementMaxListeners();
-        this.client.once(Events.GuildCreate, handleGuild);
+    return this._waitForGuild(data);
+  }
 
-        const timeout = setTimeout(() => {
-          this.client.removeListener(Events.GuildCreate, handleGuild);
-          this.client.decrementMaxListeners();
-          resolve(this.client.guilds._add(data));
-        }, 10_000).unref();
-      })
-    );
+  /**
+   * Resolves a newly created guild from cache, waiting up to 10 seconds for its `guildCreate` gateway event.
+   * @param {APIGuild} data The raw guild payload returned by REST
+   * @returns {Promise<Guild>|Guild}
+   * @private
+   */
+  _waitForGuild(data) {
+    if (this.cache.has(data.id)) return this.cache.get(data.id);
+
+    return new Promise(resolve => {
+      const resolveGuild = guild => {
+        this.client.off(Events.GuildCreate, handleGuild);
+        this.client.decrementMaxListeners();
+        resolve(guild);
+      };
+
+      const handleGuild = guild => {
+        if (guild.id === data.id) {
+          clearTimeout(timeout);
+          resolveGuild(guild);
+        }
+      };
+
+      this.client.incrementMaxListeners();
+      this.client.on(Events.GuildCreate, handleGuild);
+
+      const timeout = setTimeout(() => resolveGuild(this._add(data)), 10_000).unref();
+    });
   }
 
   /**
@@ -308,7 +311,9 @@ class GuildManager extends CachedManager {
 
       const fetchedSoundboardSounds = new Collection();
 
+      let settled = false;
       const cleanup = () => {
+        settled = true;
         clearTimeout(timeout);
         this.client.removeListener(Events.SoundboardSounds, handler);
         this.client.decrementMaxListeners();
@@ -337,16 +342,23 @@ class GuildManager extends CachedManager {
       this.client.incrementMaxListeners();
       this.client.on(Events.SoundboardSounds, handler);
 
-      try {
-        this.client.ws.shards.get(0).send({
-          op: GatewayOpcodes.RequestSoundboardSounds,
-          d: {
-            guild_ids: guildIds,
-          },
-        });
-      } catch (error) {
+      const fail = error => {
+        if (settled) return;
         cleanup();
         reject(error);
+      };
+
+      try {
+        Promise.resolve(
+          this.client.ws.shards.get(0).send({
+            op: GatewayOpcodes.RequestSoundboardSounds,
+            d: {
+              guild_ids: guildIds,
+            },
+          }),
+        ).catch(fail);
+      } catch (error) {
+        fail(error);
       }
     });
   }

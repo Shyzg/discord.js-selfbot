@@ -6,6 +6,7 @@ const { test } = require('node:test');
 const { inspect } = require('node:util');
 const { DiscordAPIError } = require('@discordjs/rest');
 const { Client } = require('../src');
+const { generateTotp } = require('../src/client/Totp');
 
 // A user-mode client whose network calls are stubbed: rest.post is replaced per-test, and login() is
 // short-circuited to return its token so no real gateway connection happens.
@@ -115,7 +116,7 @@ test('a totpSecret solves TOTP MFA automatically (no mfa handler)', async () => 
     if (route === '/auth/mfa/totp') return { token: 'MFATOKEN' };
     throw new Error(`unexpected route ${route}`);
   });
-  // 16 base32 chars = 10 bytes: a real Discord-length 2FA secret, below otplib's default 16-byte guardrail
+  // 16 base32 chars = 10 bytes: a real Discord-length 2FA secret
   const token = await client.normalLogin('user@example.com', 'pw', { totpSecret: 'JBSWY3DPEHPK3PXP' });
   assert.equal(token, 'MFATOKEN');
   const mfaCall = posts.find(p => p[0] === '/auth/mfa/totp')[1];
@@ -211,4 +212,61 @@ test('_censoredToken masks mfa.* user tokens, 3-part tokens, and bare tokens', (
 
   client.token = 'baresecret';
   assert.equal(client._censoredToken, '**********');
+});
+
+test('generateTotp matches RFC 6238 SHA-1 test vectors and rejects invalid base32', () => {
+  // RFC 6238 Appendix B SHA-1 secret "12345678901234567890" encoded in base32
+  const rfcSecret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+  assert.equal(generateTotp(rfcSecret, 59_000), '287082');
+  assert.equal(generateTotp('gezd gnbv gy3t qojq gezd gnbv gy3t qojq====', 1_111_111_109_000), '081804');
+  assert.equal(generateTotp(rfcSecret, 1_234_567_890_000), '005924');
+  assert.throws(() => generateTotp(''), /invalid base32/i);
+  assert.throws(() => generateTotp('NOT!VALID!BASE32'), /invalid base32/i);
+});
+
+test('Client#login strips Bot/Bearer prefix and destroys client when ws.connect fails', async () => {
+  const client = new Client();
+  let destroyed = false;
+  const origDestroy = client.destroy.bind(client);
+  client.destroy = async () => {
+    destroyed = true;
+    await origDestroy();
+  };
+  client.ws.connect = async () => {};
+
+  const returned = await client.login('Bearer MY.USER.TOKEN');
+  assert.equal(returned, 'MY.USER.TOKEN');
+  assert.equal(client.token, 'MY.USER.TOKEN');
+
+  client.ws.connect = async () => {
+    throw new Error('gateway refused');
+  };
+  await assert.rejects(() => client.login('Bot OTHER.TOKEN'), /gateway refused/);
+  assert.equal(destroyed, true);
+});
+
+test('normalLogin sendSms helper hits /auth/mfa/sms/send and strips ticket if caught in mfa callback', async () => {
+  const posts = [];
+  let caughtSmsErr;
+  const client = stubClient(async (route, opts) => {
+    posts.push([route, opts]);
+    if (route === '/auth/login') return { mfa: true, ticket: 'SMS-TICKET-SECRET', sms: true, totp: true };
+    if (route === '/auth/mfa/sms/send') {
+      throw new DiscordAPIError({ message: 'Rate limited', code: 0 }, 0, 429, 'POST', route, { body: opts.body });
+    }
+    if (route === '/auth/mfa/totp') return { token: 'FALLBACK_TOKEN' };
+    throw new Error(`unexpected route ${route}`);
+  });
+
+  const token = await client.normalLogin('user@example.com', 'pw', {
+    mfa: async ctx => {
+      caughtSmsErr = await ctx.sendSms().catch(err => err);
+      return { method: 'totp', code: '654321' };
+    },
+  });
+  assert.equal(token, 'FALLBACK_TOKEN');
+  assert.equal(posts[1][0], '/auth/mfa/sms/send');
+  assert.deepEqual(posts[1][1].body, { ticket: 'SMS-TICKET-SECRET' });
+  assert.ok(caughtSmsErr instanceof DiscordAPIError);
+  assert.ok(!inspect(caughtSmsErr).includes('SMS-TICKET-SECRET'));
 });

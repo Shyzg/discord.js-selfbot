@@ -4,7 +4,9 @@
 const assert = require('node:assert/strict');
 const { Buffer } = require('node:buffer');
 const { test } = require('node:test');
+const { inspect } = require('node:util');
 const { generateKeyPairSync, createHash, verify } = require('node:crypto');
+const { DiscordAPIError } = require('@discordjs/rest');
 const { Client } = require('../src');
 const { buildAssertion } = require('../src/client/Passkey');
 
@@ -100,5 +102,25 @@ test('passkeyLogin rejects with TokenInvalid instead of falling back to DISCORD_
     { code: 'TokenInvalid' },
   );
   assert.equal(loginCalled, false);
+  await client.destroy();
+});
+
+test('passkeyLogin strips ticket and credential from REST errors on /auth/conditional/finish', async () => {
+  const { keyValue } = p256KeyValue();
+  const client = new Client();
+  client.rest.post = async (route, opts) => {
+    if (route === '/auth/conditional/start') {
+      return {
+        challenge: JSON.stringify({ publicKey: { challenge: 'CH', rpId: 'discord.com' } }),
+        ticket: 'SECRET-PASSKEY-TICKET',
+      };
+    }
+    throw new DiscordAPIError({ message: 'Invalid assertion', code: 0 }, 0, 400, 'POST', route, { body: opts.body });
+  };
+  const error = await client
+    .passkeyLogin({ credentialId: 'b64.CRED', privateKey: keyValue, userHandle: 'UH' })
+    .catch(err => err);
+  assert.ok(error instanceof DiscordAPIError);
+  assert.ok(!inspect(error).includes('SECRET-PASSKEY-TICKET'));
   await client.destroy();
 });

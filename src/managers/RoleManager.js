@@ -11,7 +11,6 @@ const { resolveImage } = require('../util/DataResolver');
 const PermissionsBitField = require('../util/PermissionsBitField');
 const { setPosition, resolveColor } = require('../util/Util');
 
-let cacheWarningEmitted = false;
 let deprecationEmittedForCreate = false;
 let deprecationEmittedForEdit = false;
 
@@ -20,15 +19,10 @@ let deprecationEmittedForEdit = false;
  * @extends {CachedManager}
  */
 class RoleManager extends CachedManager {
+  static _warnOnCacheOverride = true;
+
   constructor(guild, iterable) {
     super(guild.client, Role, iterable);
-    if (!cacheWarningEmitted && this._cache.constructor.name !== 'Collection') {
-      cacheWarningEmitted = true;
-      process.emitWarning(
-        `Overriding the cache handling for ${this.constructor.name} is unsupported and breaks functionality.`,
-        'UnsupportedCacheOverwriteWarning',
-      );
-    }
 
     /**
      * The guild belonging to this manager

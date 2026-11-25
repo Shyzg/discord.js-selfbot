@@ -9,8 +9,9 @@ const {
   WebSocketShard: WSWebSocketShard,
   WebSocketShardEvents: WSEvents,
 } = require('@discordjs/ws');
-const { GatewayCloseCodes } = require('discord-api-types/v10');
+const { ChannelType, GatewayCloseCodes } = require('discord-api-types/v10');
 const { Client, Collection, Events, Status } = require('../src');
+const handlers = require('../src/client/websocket/handlers');
 const WebSocketShard = require('../src/client/websocket/WebSocketShard');
 const { discordSort } = require('../src/util/Util');
 
@@ -163,4 +164,119 @@ test('a gateway authentication failure (close 4004) rejects connect() with Token
   t.mock.method(WSWebSocketManager.prototype, 'connect', () => Promise.reject(authError));
   await assert.rejects(client.ws.connect(), { code: 'TokenInvalid' });
   await client.destroy();
+});
+
+test('re-logging in with a differing token without destroy() resets session state and emits clientReady', async t => {
+  const client = new Client();
+  t.mock.method(WSWebSocketManager.prototype, 'connect', async () => {});
+  let readyCount = 0;
+  client.on(Events.ClientReady, () => readyCount++);
+
+  client.token = 'TOKEN.ONE.AAA';
+  await client.ws.connect();
+  client.ws.shards.get(0).sessionInfo = { sessionId: 'OLD_SESSION', sequence: 42 };
+  client.ws.shards.get(0).onReadyPacket({ guilds: [] });
+  client.ws.shards.get(0).checkReady();
+  assert.equal(readyCount, 1);
+
+  // Switch token directly without calling client.destroy() first
+  client.token = 'TOKEN.TWO.BBB';
+  await client.ws.connect();
+  assert.equal(client.ws.destroyed, false);
+  assert.equal(client.ws.status, Status.Idle);
+  assert.equal(client.readyTimestamp, null);
+  assert.equal(client.ws._ws.options.retrieveSessionInfo(0), null);
+  client.ws.shards.get(0).onReadyPacket({ guilds: [] });
+  client.ws.shards.get(0).checkReady();
+  assert.equal(readyCount, 2);
+  await client.destroy();
+});
+
+test('switching accounts through READY clears old user ID, guilds, DMs, and users cache', async t => {
+  const client = new Client();
+  t.mock.method(WSWebSocketManager.prototype, 'connect', async () => {});
+
+  const readyPayload = (userId, username, guildId, dmId) => ({
+    d: {
+      user: { id: userId, username, discriminator: '0' },
+      users: [{ id: `${userId}9`, username: `friend-${userId}` }],
+      private_channels: [{ id: dmId, type: ChannelType.DM, recipient_ids: [`${userId}9`] }],
+      guilds: [
+        {
+          id: guildId,
+          properties: { name: `Guild-${guildId}`, owner_id: userId },
+          members: [{ user: { id: userId, username }, roles: [] }],
+          channels: [],
+          roles: [],
+          emojis: [],
+        },
+      ],
+    },
+  });
+
+  const dispatchReady = (userId, username, guildId, dmId) => {
+    const payload = readyPayload(userId, username, guildId, dmId);
+    const shard = client.ws.shards.get(0);
+    shard.onReadyPacket(payload.d);
+    handlers.READY(client, payload, shard);
+  };
+
+  // Login as Account A
+  await client.login('TOKEN.ONE.AAA');
+  dispatchReady('111', 'alice', '10', '900');
+  assert.equal(client.user.id, '111');
+  assert.equal(client.user.username, 'alice');
+  assert.ok(client.guilds.cache.has('10'));
+  assert.ok(client.channels.cache.has('900'));
+
+  // Destroy then login as Account B
+  await client.destroy();
+  assert.equal(client.user, null);
+  assert.equal(client.guilds.cache.size, 0);
+  assert.equal(client.channels.cache.size, 0);
+  assert.equal(client.users.cache.size, 0);
+
+  await client.login('TOKEN.TWO.BBB');
+  dispatchReady('999', 'bob', '20', '901');
+  assert.equal(client.user.id, '999');
+  assert.equal(client.user.username, 'bob');
+  assert.equal(client.guilds.cache.has('10'), false);
+  assert.equal(client.channels.cache.has('900'), false);
+  assert.equal(client.users.cache.has('111'), false);
+  assert.equal(client.guilds.cache.get('20')?.members.me?.id, '999');
+
+  // Switch directly to Account C without calling destroy() first
+  await client.login('TOKEN.THREE.CCC');
+  dispatchReady('777', 'carol', '30', '902');
+  assert.equal(client.user.id, '777');
+  assert.equal(client.user.username, 'carol');
+  assert.equal(client.guilds.cache.has('20'), false);
+  assert.equal(client.channels.cache.has('901'), false);
+  assert.equal(client.users.cache.has('999'), false);
+  assert.equal(client.guilds.cache.get('30')?.members.me?.id, '777');
+
+  await client.destroy();
+});
+
+test('retrying login() after a failed login or destroy() restarts cache and REST sweepers', async t => {
+  const client = new Client();
+  let failOnce = true;
+  t.mock.method(WSWebSocketManager.prototype, 'connect', async () => {
+    if (failOnce) {
+      failOnce = false;
+      throw new Error('temporary network error');
+    }
+  });
+
+  await assert.rejects(() => client.login('TOKEN.RETRY.AAA'), /temporary network error/);
+  assert.equal(client.sweepers.intervals.threads, null);
+
+  await client.login('TOKEN.RETRY.AAA');
+  assert.ok(client.sweepers.intervals.threads);
+  assert.equal(client.sweepers.intervals.threads._destroyed, false);
+  assert.equal(client.rest.hashTimer._destroyed, false);
+  assert.equal(client.rest.handlerTimer._destroyed, false);
+
+  await client.destroy();
+  assert.equal(client.sweepers.intervals.threads, null);
 });

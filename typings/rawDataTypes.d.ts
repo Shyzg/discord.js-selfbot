@@ -63,12 +63,8 @@ import {
   RESTGetAPIWebhookWithTokenResult,
   RESTPatchAPIChannelMessageJSONBody,
   RESTPatchAPICurrentGuildMemberNicknameJSONBody,
-  RESTPatchAPIInteractionFollowupJSONBody,
-  RESTPatchAPIInteractionOriginalResponseJSONBody,
   RESTPatchAPIWebhookWithTokenJSONBody,
   RESTPostAPIChannelMessageJSONBody,
-  RESTPostAPIInteractionCallbackFormDataBody,
-  RESTPostAPIInteractionFollowupJSONBody,
   RESTPostAPIWebhookWithTokenJSONBody,
   Snowflake,
 } from 'discord-api-types/v10';
@@ -141,17 +137,11 @@ export type RawInviteStageInstance = APIInviteStageInstance;
 export type RawMessageData = APIMessage;
 export type RawPartialMessageData = GatewayMessageUpdateDispatchData;
 
-export type RawAttachmentData = APIAttachment;
-
 export type RawMessagePayloadData =
   | RESTPostAPIChannelMessageJSONBody
   | RESTPatchAPIChannelMessageJSONBody
   | RESTPostAPIWebhookWithTokenJSONBody
-  | RESTPatchAPIWebhookWithTokenJSONBody
-  | RESTPostAPIInteractionCallbackFormDataBody
-  | RESTPatchAPIInteractionOriginalResponseJSONBody
-  | RESTPostAPIInteractionFollowupJSONBody
-  | RESTPatchAPIInteractionFollowupJSONBody;
+  | RESTPatchAPIWebhookWithTokenJSONBody;
 
 export type RawMessageReactionData = APIReaction | GatewayMessageReactionAddDispatchData;
 

@@ -55,11 +55,14 @@ class ReactionCollector extends Collector {
     const bulkDeleteListener = messages => {
       if (messages.has(this.message.id)) this.stop('messageDelete');
     };
+    const removeAllListener = target => {
+      if (target.id === this.message.id) this.empty();
+    };
 
     this.client.incrementMaxListeners();
     this.client.on(Events.MessageReactionAdd, this.handleCollect);
     this.client.on(Events.MessageReactionRemove, this.handleDispose);
-    this.client.on(Events.MessageReactionRemoveAll, this.empty);
+    this.client.on(Events.MessageReactionRemoveAll, removeAllListener);
     this.client.on(Events.MessageDelete, this._handleMessageDeletion);
     this.client.on(Events.MessageBulkDelete, bulkDeleteListener);
     this.client.on(Events.ChannelDelete, this._handleChannelDeletion);
@@ -69,7 +72,7 @@ class ReactionCollector extends Collector {
     this.once('end', () => {
       this.client.removeListener(Events.MessageReactionAdd, this.handleCollect);
       this.client.removeListener(Events.MessageReactionRemove, this.handleDispose);
-      this.client.removeListener(Events.MessageReactionRemoveAll, this.empty);
+      this.client.removeListener(Events.MessageReactionRemoveAll, removeAllListener);
       this.client.removeListener(Events.MessageDelete, this._handleMessageDeletion);
       this.client.removeListener(Events.MessageBulkDelete, bulkDeleteListener);
       this.client.removeListener(Events.ChannelDelete, this._handleChannelDeletion);

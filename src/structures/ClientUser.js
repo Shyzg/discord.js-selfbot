@@ -60,14 +60,19 @@ class ClientUser extends User {
    * @returns {Promise<ClientUser>}
    */
   async edit({ username, avatar, banner, password }) {
-    const data = await this.client.rest.patch(Routes.user(), {
-      body: {
-        username,
-        avatar: avatar && (await resolveImage(avatar)),
-        banner: banner && (await resolveImage(banner)),
-        password,
-      },
-    });
+    const data = await this.client.rest
+      .patch(Routes.user(), {
+        body: {
+          username,
+          avatar: avatar && (await resolveImage(avatar)),
+          banner: banner && (await resolveImage(banner)),
+          password,
+        },
+      })
+      .catch(error => {
+        if (error?.requestBody) delete error.requestBody;
+        throw error;
+      });
 
     const { updated } = this.client.actions.UserUpdate.handle(data);
     return updated ?? this;

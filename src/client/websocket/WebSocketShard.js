@@ -97,35 +97,6 @@ class WebSocketShard extends EventEmitter {
    */
 
   /**
-   * This method is responsible to emit close event for this shard.
-   * This method helps the shard reconnect.
-   * @param {CloseEvent} [event] Close event that was received
-   * @deprecated
-   */
-  emitClose(
-    event = {
-      code: 1011,
-      reason: 'INTERNAL_ERROR',
-      wasClean: false,
-    },
-  ) {
-    this.debug([
-      '[CLOSE]',
-      `Event Code: ${event.code}`,
-      `Clean     : ${event.wasClean}`,
-      `Reason    : ${event.reason ?? 'No reason received'}`,
-    ]);
-
-    /**
-     * Emitted when a shard's WebSocket closes.
-     * @private
-     * @event WebSocketShard#close
-     * @param {CloseEvent} event The received event
-     */
-    this.emit(WebSocketShardEvents.Close, event);
-  }
-
-  /**
    * Called when the shard receives the READY payload.
    * @param {Object} packet The received packet
    * @private
@@ -211,7 +182,10 @@ class WebSocketShard extends EventEmitter {
       );
       deprecationEmittedForImportant = true;
     }
-    this.manager._ws.send(this.id, data);
+    if (!this.manager._ws) {
+      return Promise.reject(new Error('WebSocketManager is not connected'));
+    }
+    return this.manager._ws.send(this.id, data);
   }
 }
 

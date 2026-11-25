@@ -1,6 +1,5 @@
 'use strict';
 
-const { isDeepStrictEqual: isEqual } = require('node:util');
 const { DiscordSnowflake } = require('@sapphire/snowflake');
 const { ApplicationCommandOptionType } = require('discord-api-types/v10');
 const Base = require('./Base');
@@ -116,7 +115,7 @@ class ApplicationCommand extends Base {
        * The options of this command
        * @type {ApplicationCommandOption[]}
        */
-      this.options = data.options.map(option => this.constructor.transformOption(option, true));
+      this.options = data.options.map(option => this.constructor.transformOption(option));
     } else {
       this.options ??= [];
     }
@@ -269,170 +268,6 @@ class ApplicationCommand extends Base {
    */
 
   /**
-   * Whether this command equals another command. It compares all properties, so for most operations
-   * it is advisable to just compare `command.id === command2.id` as it is much faster and is often
-   * what most users need.
-   * @param {ApplicationCommand|ApplicationCommandData|APIApplicationCommand} command The command to compare with
-   * @param {boolean} [enforceOptionOrder=false] Whether to strictly check that options and choices are in the same
-   * order in the array <info>The client may not always respect this ordering!</info>
-   * @returns {boolean}
-   */
-  equals(command, enforceOptionOrder = false) {
-    // If given an id, check if the id matches
-    if (command.id && this.id !== command.id) return false;
-
-    let defaultMemberPermissions = null;
-    let dmPermission = command.dmPermission ?? command.dm_permission;
-
-    if ('default_member_permissions' in command) {
-      defaultMemberPermissions = command.default_member_permissions
-        ? new PermissionsBitField(BigInt(command.default_member_permissions)).bitfield
-        : null;
-    }
-
-    if ('defaultMemberPermissions' in command) {
-      defaultMemberPermissions =
-        command.defaultMemberPermissions !== null
-          ? new PermissionsBitField(command.defaultMemberPermissions).bitfield
-          : null;
-    }
-
-    // Check top level parameters
-    if (
-      command.name !== this.name ||
-      ('description' in command && command.description !== this.description) ||
-      ('version' in command && command.version !== this.version) ||
-      (command.type && command.type !== this.type) ||
-      ('nsfw' in command && command.nsfw !== this.nsfw) ||
-      // Future proof for options being nullable
-      // TODO: remove ?? 0 on each when nullable
-      (command.options?.length ?? 0) !== (this.options?.length ?? 0) ||
-      defaultMemberPermissions !== (this.defaultMemberPermissions?.bitfield ?? null) ||
-      (dmPermission !== undefined && dmPermission !== this.dmPermission) ||
-      !isEqual(command.nameLocalizations ?? command.name_localizations ?? {}, this.nameLocalizations ?? {}) ||
-      !isEqual(
-        command.descriptionLocalizations ?? command.description_localizations ?? {},
-        this.descriptionLocalizations ?? {},
-      ) ||
-      !isEqual(command.integrationTypes ?? command.integration_types ?? [], this.integrationTypes ?? []) ||
-      !isEqual(command.contexts ?? [], this.contexts ?? []) ||
-      ('handler' in command && command.handler !== this.handler)
-    ) {
-      return false;
-    }
-
-    if (command.options) {
-      return this.constructor.optionsEqual(this.options, command.options, enforceOptionOrder);
-    }
-    return true;
-  }
-
-  /**
-   * Recursively checks that all options for an {@link ApplicationCommand} are equal to the provided options.
-   * In most cases it is better to compare using {@link ApplicationCommand#equals}
-   * @param {ApplicationCommandOptionData[]} existing The options on the existing command,
-   * should be {@link ApplicationCommand#options}
-   * @param {ApplicationCommandOptionData[]|APIApplicationCommandOption[]} options The options to compare against
-   * @param {boolean} [enforceOptionOrder=false] Whether to strictly check that options and choices are in the same
-   * order in the array <info>The client may not always respect this ordering!</info>
-   * @returns {boolean}
-   */
-  static optionsEqual(existing, options, enforceOptionOrder = false) {
-    if (existing.length !== options.length) return false;
-    if (enforceOptionOrder) {
-      return existing.every((option, index) => this._optionEquals(option, options[index], enforceOptionOrder));
-    }
-    const newOptions = new Map(options.map(option => [option.name, option]));
-    for (const option of existing) {
-      const foundOption = newOptions.get(option.name);
-      if (!foundOption || !this._optionEquals(option, foundOption)) return false;
-    }
-    return true;
-  }
-
-  /**
-   * Checks that an option for an {@link ApplicationCommand} is equal to the provided option
-   * In most cases it is better to compare using {@link ApplicationCommand#equals}
-   * @param {ApplicationCommandOptionData} existing The option on the existing command,
-   * should be from {@link ApplicationCommand#options}
-   * @param {ApplicationCommandOptionData|APIApplicationCommandOption} option The option to compare against
-   * @param {boolean} [enforceOptionOrder=false] Whether to strictly check that options or choices are in the same
-   * order in their array <info>The client may not always respect this ordering!</info>
-   * @returns {boolean}
-   * @private
-   */
-  static _optionEquals(existing, option, enforceOptionOrder = false) {
-    if (
-      option.name !== existing.name ||
-      option.type !== existing.type ||
-      option.description !== existing.description ||
-      option.autocomplete !== existing.autocomplete ||
-      (option.required ??
-        ([ApplicationCommandOptionType.Subcommand, ApplicationCommandOptionType.SubcommandGroup].includes(option.type)
-          ? undefined
-          : false)) !== existing.required ||
-      option.choices?.length !== existing.choices?.length ||
-      option.options?.length !== existing.options?.length ||
-      (option.channelTypes ?? option.channel_types)?.length !== existing.channelTypes?.length ||
-      (option.fileTypes ?? option.file_types)?.length !== existing.fileTypes?.length ||
-      (option.minValue ?? option.min_value) !== existing.minValue ||
-      (option.maxValue ?? option.max_value) !== existing.maxValue ||
-      (option.minLength ?? option.min_length) !== existing.minLength ||
-      (option.maxLength ?? option.max_length) !== existing.maxLength ||
-      !isEqual(option.nameLocalizations ?? option.name_localizations ?? {}, existing.nameLocalizations ?? {}) ||
-      !isEqual(
-        option.descriptionLocalizations ?? option.description_localizations ?? {},
-        existing.descriptionLocalizations ?? {},
-      )
-    ) {
-      return false;
-    }
-
-    if (existing.choices) {
-      if (
-        enforceOptionOrder &&
-        !existing.choices.every(
-          (choice, index) =>
-            choice.name === option.choices[index].name &&
-            choice.value === option.choices[index].value &&
-            isEqual(
-              choice.nameLocalizations ?? {},
-              option.choices[index].nameLocalizations ?? option.choices[index].name_localizations ?? {},
-            ),
-        )
-      ) {
-        return false;
-      }
-      if (!enforceOptionOrder) {
-        const newChoices = new Map(option.choices.map(choice => [choice.name, choice]));
-        for (const choice of existing.choices) {
-          const foundChoice = newChoices.get(choice.name);
-          if (!foundChoice || foundChoice.value !== choice.value) return false;
-        }
-      }
-    }
-
-    if (existing.channelTypes) {
-      const newTypes = option.channelTypes ?? option.channel_types;
-      for (const type of existing.channelTypes) {
-        if (!newTypes.includes(type)) return false;
-      }
-    }
-
-    if (existing.fileTypes) {
-      const newTypes = option.fileTypes ?? option.file_types;
-      for (const type of existing.fileTypes) {
-        if (!newTypes.includes(type)) return false;
-      }
-    }
-
-    if (existing.options) {
-      return this.optionsEqual(existing.options, option.options, enforceOptionOrder);
-    }
-    return true;
-  }
-
-  /**
    * An option for an application command or subcommand.
    * @typedef {Object} ApplicationCommandOption
    * @property {ApplicationCommandOptionType} type The type of the option
@@ -473,31 +308,20 @@ class ApplicationCommand extends Base {
    */
 
   /**
-   * Transforms an {@link ApplicationCommandOptionData} object into something that can be used with the API.
-   * @param {ApplicationCommandOptionData|ApplicationCommandOption} option The option to transform
-   * @param {boolean} [received] Whether this option has been received from Discord
-   * @returns {APIApplicationCommandOption}
+   * Transforms a received API application command option into camelCase structure fields.
+   * @param {APIApplicationCommandOption} option The raw option from Discord
+   * @returns {ApplicationCommandOption}
    * @private
    */
-  static transformOption(option, received) {
-    const channelTypesKey = received ? 'channelTypes' : 'channel_types';
-    const fileTypesKey = received ? 'fileTypes' : 'file_types';
-    const minValueKey = received ? 'minValue' : 'min_value';
-    const maxValueKey = received ? 'maxValue' : 'max_value';
-    const minLengthKey = received ? 'minLength' : 'min_length';
-    const maxLengthKey = received ? 'maxLength' : 'max_length';
-    const nameLocalizationsKey = received ? 'nameLocalizations' : 'name_localizations';
-    const nameLocalizedKey = received ? 'nameLocalized' : 'name_localized';
-    const descriptionLocalizationsKey = received ? 'descriptionLocalizations' : 'description_localizations';
-    const descriptionLocalizedKey = received ? 'descriptionLocalized' : 'description_localized';
+  static transformOption(option) {
     return {
       type: option.type,
       name: option.name,
-      [nameLocalizationsKey]: option.nameLocalizations ?? option.name_localizations,
-      [nameLocalizedKey]: option.nameLocalized ?? option.name_localized,
+      nameLocalizations: option.nameLocalizations ?? option.name_localizations,
+      nameLocalized: option.nameLocalized ?? option.name_localized,
       description: option.description,
-      [descriptionLocalizationsKey]: option.descriptionLocalizations ?? option.description_localizations,
-      [descriptionLocalizedKey]: option.descriptionLocalized ?? option.description_localized,
+      descriptionLocalizations: option.descriptionLocalizations ?? option.description_localizations,
+      descriptionLocalized: option.descriptionLocalized ?? option.description_localized,
       required:
         option.required ??
         (option.type === ApplicationCommandOptionType.Subcommand ||
@@ -507,17 +331,17 @@ class ApplicationCommand extends Base {
       autocomplete: option.autocomplete,
       choices: option.choices?.map(choice => ({
         name: choice.name,
-        [nameLocalizedKey]: choice.nameLocalized ?? choice.name_localized,
-        [nameLocalizationsKey]: choice.nameLocalizations ?? choice.name_localizations,
+        nameLocalized: choice.nameLocalized ?? choice.name_localized,
+        nameLocalizations: choice.nameLocalizations ?? choice.name_localizations,
         value: choice.value,
       })),
-      options: option.options?.map(opt => this.transformOption(opt, received)),
-      [channelTypesKey]: option.channelTypes ?? option.channel_types,
-      [fileTypesKey]: option.fileTypes ?? option.file_types,
-      [minValueKey]: option.minValue ?? option.min_value,
-      [maxValueKey]: option.maxValue ?? option.max_value,
-      [minLengthKey]: option.minLength ?? option.min_length,
-      [maxLengthKey]: option.maxLength ?? option.max_length,
+      options: option.options?.map(opt => this.transformOption(opt)),
+      channelTypes: option.channelTypes ?? option.channel_types,
+      fileTypes: option.fileTypes ?? option.file_types,
+      minValue: option.minValue ?? option.min_value,
+      maxValue: option.maxValue ?? option.max_value,
+      minLength: option.minLength ?? option.min_length,
+      maxLength: option.maxLength ?? option.max_length,
     };
   }
 }

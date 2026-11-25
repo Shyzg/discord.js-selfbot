@@ -2,7 +2,7 @@
 
 const { ChannelType, Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
-const { DiscordjsError, ErrorCodes } = require('../errors');
+const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const { GuildMember } = require('../structures/GuildMember');
 const { Message } = require('../structures/Message');
 const ThreadMember = require('../structures/ThreadMember');
@@ -60,6 +60,7 @@ class UserManager extends CachedManager {
    */
   async createDM(user, { cache = true, force = false } = {}) {
     const id = this.resolveId(user);
+    if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
 
     if (!force) {
       const dmChannel = this.dmChannel(id);
@@ -92,6 +93,7 @@ class UserManager extends CachedManager {
    */
   async fetch(user, { cache = true, force = false } = {}) {
     const id = this.resolveId(user);
+    if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
     if (!force) {
       const existing = this.cache.get(id);
       if (existing && !existing.partial) return existing;
@@ -147,7 +149,7 @@ class UserManager extends CachedManager {
   resolveId(user) {
     if (user instanceof ThreadMember) return user.id;
     if (user instanceof GuildMember) return user.user.id;
-    if (user instanceof Message) return user.author.id;
+    if (user instanceof Message) return user.author?.id ?? null;
     return super.resolveId(user);
   }
 }

@@ -124,7 +124,7 @@ class Guild extends AnonymousGuild {
      * The id of the shard this Guild belongs to.
      * @type {number}
      */
-    this.shardId = data.shardId;
+    this.shardId = data.shardId ?? 0;
   }
 
   /**

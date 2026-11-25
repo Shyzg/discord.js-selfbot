@@ -459,7 +459,6 @@ class Message extends Base {
        * @type {Collection<Snowflake, Message>}
        */
       this.messageSnapshots = data.message_snapshots.reduce((coll, snapshot) => {
-        const channel = this.client.channels.resolve(this.reference.channelId);
         const snapshotData = {
           ...snapshot.message,
           id: this.reference.messageId,
@@ -467,10 +466,7 @@ class Message extends Base {
           guild_id: this.reference.guildId,
         };
 
-        return coll.set(
-          this.reference.messageId,
-          channel ? channel.messages._add(snapshotData) : new this.constructor(this.client, snapshotData),
-        );
+        return coll.set(this.reference.messageId, new this.constructor(this.client, snapshotData));
       }, new Collection());
     } else {
       this.messageSnapshots ??= new Collection();
@@ -673,7 +669,7 @@ class Message extends Base {
    */
   get editable() {
     const precheck = Boolean(
-      this.author.id === this.client.user.id &&
+      this.author?.id === this.client.user.id &&
         (!this.guild || this.channel?.viewable) &&
         this.reference?.type !== MessageReferenceType.Forward,
     );
@@ -700,7 +696,7 @@ class Message extends Base {
     if (UndeletableMessageTypes.includes(this.type)) return false;
 
     if (!this.guild) {
-      return this.author.id === this.client.user.id;
+      return this.author?.id === this.client.user.id;
     }
     // DMChannel does not have viewable property, so check viewable after proved that message is on a guild.
     if (!this.channel?.viewable) {
@@ -714,7 +710,7 @@ class Message extends Base {
 
     // The auto moderation action message author is the reference message author
     return (
-      (this.type !== MessageType.AutoModerationAction && this.author.id === this.client.user.id) ||
+      (this.type !== MessageType.AutoModerationAction && this.author?.id === this.client.user.id) ||
       (permissions.has(PermissionFlagsBits.ManageMessages, false) && !this.guild.members.me.isCommunicationDisabled())
     );
   }
@@ -758,7 +754,7 @@ class Message extends Base {
   get crosspostable() {
     const bitfield =
       PermissionFlagsBits.SendMessages |
-      (this.author.id === this.client.user.id ? PermissionsBitField.DefaultBit : PermissionFlagsBits.ManageMessages);
+      (this.author?.id === this.client.user.id ? PermissionsBitField.DefaultBit : PermissionFlagsBits.ManageMessages);
     const { channel } = this;
     return Boolean(
       channel?.type === ChannelType.GuildAnnouncement &&
@@ -1025,7 +1021,7 @@ class Message extends Base {
 
     let equal =
       this.id === message.id &&
-      this.author.id === message.author.id &&
+      this.author?.id === message.author?.id &&
       this.content === message.content &&
       this.nonce === message.nonce &&
       this.tts === message.tts &&
@@ -1038,7 +1034,7 @@ class Message extends Base {
       equal =
         this.mentions.everyone === message.mentions.everyone &&
         this.createdTimestamp === Date.parse(rawData.timestamp) &&
-        this.editedTimestamp === Date.parse(rawData.edited_timestamp);
+        this.editedTimestamp === (rawData.edited_timestamp ? Date.parse(rawData.edited_timestamp) : null);
     }
 
     return equal;

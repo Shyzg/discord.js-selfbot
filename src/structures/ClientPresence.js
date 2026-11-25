@@ -3,6 +3,7 @@
 const { GatewayOpcodes, ActivityType } = require('discord-api-types/v10');
 const { Presence } = require('./Presence');
 const { DiscordjsTypeError, ErrorCodes } = require('../errors');
+const Events = require('../util/Events');
 
 /**
  * Represents the client's presence.
@@ -23,12 +24,15 @@ class ClientPresence extends Presence {
     this._patch(packet);
     if (presence.shardId === undefined) {
       this.client.ws.broadcast({ op: GatewayOpcodes.PresenceUpdate, d: packet });
-    } else if (Array.isArray(presence.shardId)) {
-      for (const shardId of presence.shardId) {
-        this.client.ws.shards.get(shardId).send({ op: GatewayOpcodes.PresenceUpdate, d: packet });
-      }
     } else {
-      this.client.ws.shards.get(presence.shardId).send({ op: GatewayOpcodes.PresenceUpdate, d: packet });
+      const shardIds = Array.isArray(presence.shardId) ? presence.shardId : [presence.shardId];
+      for (const shardId of shardIds) {
+        const shard = this.client.ws.shards.get(shardId);
+        if (!shard) continue;
+        Promise.resolve(shard.send({ op: GatewayOpcodes.PresenceUpdate, d: packet })).catch(error => {
+          if (!this.client.ws.destroyed) this.client.emit(Events.ShardError, error, shardId);
+        });
+      }
     }
     return this;
   }
@@ -52,17 +56,18 @@ class ClientPresence extends Presence {
           throw new DiscordjsTypeError(ErrorCodes.InvalidType, `activities[${i}].name`, 'string');
         }
 
-        activity.type ??= ActivityType.Playing;
+        const type = activity.type ?? ActivityType.Playing;
+        let { name, state } = activity;
 
-        if (activity.type === ActivityType.Custom && !activity.state) {
-          activity.state = activity.name;
-          activity.name = 'Custom Status';
+        if (type === ActivityType.Custom && !state) {
+          state = name;
+          name = 'Custom Status';
         }
 
         data.activities.push({
-          type: activity.type,
-          name: activity.name,
-          state: activity.state,
+          type,
+          name,
+          state,
           url: activity.url,
         });
       }

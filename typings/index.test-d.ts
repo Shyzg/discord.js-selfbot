@@ -19,6 +19,7 @@ import {
   ChannelType,
   ComponentType,
   GatewayIntentBits,
+  GuildMemberFlags,
   GuildScheduledEventRecurrenceRuleFrequency,
   GuildScheduledEventRecurrenceRuleMonth,
   GuildScheduledEventRecurrenceRuleWeekday,
@@ -76,6 +77,7 @@ import {
   Collector,
   CommandOptionNonChoiceResolvableType,
   ContainerComponentData,
+  DefaultSoundboardSound,
   DirectoryChannel,
   DMChannel,
   DMMessageManager,
@@ -96,10 +98,12 @@ import {
   GuildBan,
   GuildBanManager,
   type GuildBasedChannel,
+  GuildChannel,
   GuildChannelManager,
   GuildEmoji,
   GuildEmojiManager,
   GuildForumThreadManager,
+  GuildInviteManager,
   GuildMember,
   GuildMemberFlagsBitField,
   GuildMemberManager,
@@ -107,8 +111,11 @@ import {
   GuildOnboarding,
   GuildScheduledEventManager,
   GuildScheduledEventRecurrenceRuleOptions,
+  GuildScheduledEventUser,
+  GuildTemplate,
   type GuildTextBasedChannel,
   GuildTextThreadManager,
+  Invite,
   MediaChannel,
   MediaGalleryComponentData,
   MediaGalleryItemData,
@@ -128,6 +135,7 @@ import {
   PartialEmoji,
   PartialEmojiOnlyId,
   PartialGroupDMChannel,
+  PartialGroupDMMessageManager,
   PartialGuildMember,
   PartialMessage,
   PartialMessageReaction,
@@ -136,6 +144,7 @@ import {
   PartialTextBasedChannelFields,
   PartialThreadMember,
   PartialUser,
+  PermissionOverwriteManager,
   Poll,
   PollAnswer,
   PollAnswerVoterManager,
@@ -308,7 +317,7 @@ client.on('messageCreate', async message => {
     (await channel.messages.fetch()).filter(({ author }) => author.id === message.author.id);
 
     if (channel.isDMBased()) {
-      expectType<DMMessageManager>(channel.messages.channel.messages);
+      expectType<DMMessageManager | PartialGroupDMMessageManager>(channel.messages.channel.messages);
     } else {
       expectType<GuildMessageManager>(channel.messages.channel.messages);
     }
@@ -321,15 +330,18 @@ client.on('messageCreate', async message => {
   expectType<Client<true>>(client);
   assertIsMessage(channel.send('string'));
   assertIsMessage(channel.send({}));
-  assertIsMessage(channel.send({ embeds: [] }));
+  // @ts-expect-error User accounts cannot send embeds
+  channel.send({ embeds: [] });
 
   const attachment = new AttachmentBuilder('file.png');
   const embed = new EmbedBuilder();
   assertIsMessage(channel.send({ files: [attachment] }));
-  assertIsMessage(channel.send({ embeds: [embed] }));
-  assertIsMessage(channel.send({ embeds: [embed], files: [attachment] }));
+  // @ts-expect-error User accounts cannot send embeds
+  channel.send({ embeds: [embed] });
+  // @ts-expect-error User accounts cannot send embeds
+  channel.send({ embeds: [embed], files: [attachment] });
 
-  expectType<Exclude<TextBasedChannel, PartialGroupDMChannel>>(message.channel);
+  expectType<TextBasedChannel>(message.channel);
   expectNotType<GuildTextBasedChannel>(message.channel);
 
   // @ts-expect-error
@@ -352,7 +364,7 @@ client.on('messageCreate', async message => {
   expectNotType<NewsChannel | APIPartialChannel>(webhook.sourceChannel);
   expectNotType<string>(webhook.token);
 
-  // Check that both builders and builder data can be sent in messages
+  // Check that both builders and builder data can be sent via webhooks (user accounts cannot send embeds/components)
   const row = new ActionRowBuilder<MessageActionRowComponentBuilder>();
 
   const rawButtonsRow: ActionRowData<ButtonComponentData> = {
@@ -391,10 +403,13 @@ client.on('messageCreate', async message => {
 
   const embedData = { description: 'test', color: 0xff0000 };
 
-  channel.send({
+  webhook.send({
     components: [row, rawButtonsRow, buttonsRow, rawStringSelectMenuRow, stringSelectRow],
     embeds: [embed, embedData],
   });
+
+  // @ts-expect-error User accounts cannot send components
+  channel.send({ components: [row] });
 
   const rawTextDisplay: TextDisplayComponentData = {
     type: ComponentType.TextDisplay,
@@ -445,7 +460,7 @@ client.on('messageCreate', async message => {
     spoiler: true,
   };
 
-  channel.send({ flags: MessageFlags.IsComponentsV2, components: [rawContainer] });
+  webhook.send({ flags: MessageFlags.IsComponentsV2, components: [rawContainer] });
 });
 
 client.on('messageDelete', ({ client }) => expectType<Client<true>>(client));
@@ -661,7 +676,7 @@ client.on('guildCreate', async g => {
       ],
     });
 
-    channel.send({ components: [row, row2] });
+    webhookClient.send({ components: [row, row2] });
   }
 
   channel.setName('foo').then(updatedChannel => {
@@ -880,12 +895,10 @@ declare const categoryChannelChildManager: CategoryChannelChildManager;
     categoryChannelChildManager.create({ name: 'name', type: ChannelType.GuildStageVoice }),
   );
   expectType<Promise<TextChannel>>(categoryChannelChildManager.create({ name: 'name' }));
-  expectType<Promise<TextChannel>>(categoryChannelChildManager.create({ name: 'name' }));
 }
 
 declare const guildChannelManager: GuildChannelManager;
 {
-  expectType<Promise<TextChannel>>(guildChannelManager.create({ name: 'name' }));
   expectType<Promise<TextChannel>>(guildChannelManager.create({ name: 'name' }));
   expectType<Promise<VoiceChannel>>(guildChannelManager.create({ name: 'name', type: ChannelType.GuildVoice }));
   expectType<Promise<CategoryChannel>>(guildChannelManager.create({ name: 'name', type: ChannelType.GuildCategory }));
@@ -964,7 +977,6 @@ declare const guildMemberManager: GuildMemberManager;
 {
   expectType<Promise<GuildMember>>(guildMemberManager.fetch('12345678901234567'));
   expectType<Promise<GuildMember>>(guildMemberManager.fetch({ user: '12345678901234567' }));
-  expectType<Promise<GuildMember>>(guildMemberManager.fetch({ user: '12345678901234567', cache: true, force: false }));
   expectType<Promise<GuildMember>>(guildMemberManager.fetch({ user: '12345678901234567', cache: true, force: false }));
   expectType<Promise<Collection<Snowflake, GuildMember>>>(guildMemberManager.fetch());
   expectType<Promise<Collection<Snowflake, GuildMember>>>(guildMemberManager.fetch({}));
@@ -1060,7 +1072,6 @@ if (typing.inGuild()) {
   expectType<Guild>(typing.channel.guild);
   expectType<Guild>(typing.guild);
 }
-declare const booleanValue: boolean;
 
 declare const webSocketShard: WebSocketShard;
 
@@ -1345,7 +1356,6 @@ expectType<Readonly<ChannelFlagsBitField>>(forumChannel.flags);
 expectType<Readonly<ChannelFlagsBitField>>(dmChannel.flags);
 expectType<Readonly<ChannelFlagsBitField>>(categoryChannel.flags);
 expectType<Readonly<ChannelFlagsBitField>>(newsChannel.flags);
-expectType<Readonly<ChannelFlagsBitField>>(categoryChannel.flags);
 expectType<Readonly<ChannelFlagsBitField>>(threadChannel.flags);
 
 expectType<null>(partialGroupDMChannel.flags);
@@ -1422,8 +1432,6 @@ declare const emoji: Emoji;
   expectType<PartialEmojiOnlyId>(resolvePartialEmoji('12345678901234567'));
   expectType<PartialEmoji | null>(resolvePartialEmoji(emoji));
 }
-
-declare const application: ClientApplication;
 
 await textChannel.send({
   poll: {
@@ -1606,3 +1614,50 @@ await textChannel.send({
   ],
   flags: MessageFlags.IsVoiceMessage,
 });
+
+// User-account (selfbot) API & fixed typing assertions
+declare const clientUser: ClientUser;
+declare const channelSelect: ChannelSelectMenuComponent;
+declare const guildInviteManager: GuildInviteManager;
+declare const permissionOverwriteManager: PermissionOverwriteManager;
+declare const guildTemplate: GuildTemplate;
+declare const scheduledEventManager: GuildScheduledEventManager;
+{
+  const defaultUserClient = new Client();
+  expectType<Client>(defaultUserClient);
+  expectType<Promise<string>>(defaultUserClient.normalLogin('user@example.com', 'pw', { totpSecret: 'SECRET' }));
+  expectType<Promise<string>>(
+    defaultUserClient.QRLogin({
+      onQRCode: url => expectType<string>(url),
+      onUserData: user => expectType<string | null>(user.avatar),
+    }),
+  );
+  expectType<Promise<string>>(
+    defaultUserClient.passkeyLogin({ credentialId: 'id', privateKey: 'key', userHandle: 'uh' }),
+  );
+  expectType<Promise<Collection<string, DefaultSoundboardSound>>>(defaultUserClient.fetchDefaultSoundboardSounds());
+  expectType<Promise<void>>(webhookClient.deleteWebhook('123456789012345678'));
+  defaultUserClient.sweepers.destroy();
+
+  expectType<Promise<Collection<Snowflake, GuildMember>>>(
+    guildMemberManager.fetchMemberList(textChannel, { limit: 100, time: 5000 }),
+  );
+
+  expectType<boolean | null>(clientUser.mfaEnabled);
+  expectType<Promise<ClientUser>>(clientUser.setUsername('newname', 'password'));
+
+  expectType<ChannelType[] | null>(channelSelect.channelTypes);
+  expectType<Collection<string, Invite>>(guildInviteManager.cache);
+  expectType<GuildChannel>(permissionOverwriteManager.channel);
+  expectType<string>(guildTemplate.toString());
+
+  expectType<boolean>(guildMember.equals(guildMember));
+  expectType<GuildMemberFlags.CompletedOnboarding>(GuildMemberFlagsBitField.Flags.CompletedOnboarding);
+
+  expectType<Promise<Message<false>>>(partialGroupDMChannel.send({ content: 'hi', nonce: '123', enforceNonce: true }));
+  expectType<Promise<Message>>(message.forward(partialGroupDMChannel));
+
+  expectType<Promise<Collection<Snowflake, GuildScheduledEventUser<false>>>>(
+    scheduledEventManager.fetchSubscribers('123456789012345678', { before: '1', after: '2', limit: 10 }),
+  );
+}
