@@ -1012,6 +1012,7 @@ export class ClientUser extends User {
   public mfaEnabled: boolean | null;
   public get presence(): ClientPresence;
   public sessions: Collection<string, ClientSession>;
+  public settings: ClientUserSettings;
   public get status(): PresenceStatus | null;
   public verified: boolean;
   public edit(options: ClientUserEditOptions): Promise<this>;
@@ -3695,6 +3696,34 @@ export interface ClientSession {
   activities: GatewayActivity[];
 }
 
+export class ClientUserSettings extends Base {
+  private constructor(client: Client<true>);
+  public get status(): PresenceStatusData | null;
+  public get customStatus(): CustomStatus | null;
+  public fetch(): Promise<this>;
+  public edit(options: ClientUserSettingsEditOptions): Promise<this>;
+  public setStatus(status: PresenceStatusData): Promise<this>;
+  public setCustomStatus(customStatus: CustomStatusData | null): Promise<this>;
+  public toJSON(): { status: PresenceStatusData | null; customStatus: CustomStatus | null };
+}
+
+export interface CustomStatus {
+  text: string | null;
+  emoji: { id: Snowflake | null; name: string | null } | null;
+  expiresAt: Date | null;
+}
+
+export interface CustomStatusData {
+  text?: string;
+  emoji?: EmojiIdentifierResolvable;
+  expiresAt?: DateResolvable;
+}
+
+export interface ClientUserSettingsEditOptions {
+  status?: PresenceStatusData;
+  customStatus?: CustomStatusData | null;
+}
+
 export class ReactionManager extends CachedManager<Snowflake | string, MessageReaction, MessageReactionResolvable> {
   private constructor(message: Message, iterable?: Iterable<RawMessageReactionData>);
   public message: Message;
@@ -4470,6 +4499,7 @@ export interface ClientEvents {
   typingStart: [typing: Typing];
   userNoteUpdate: [user: User, oldNote: string | null, newNote: string | null];
   userPresenceUpdate: [oldPresence: Presence | null, newPresence: Presence];
+  userSettingsUpdate: [oldSettings: ClientUserSettings, newSettings: ClientUserSettings];
   userUpdate: [oldUser: User | PartialUser, newUser: User];
   voiceChannelEffectSend: [voiceChannelEffect: VoiceChannelEffect];
   voiceServerUpdate: [data: VoiceServerUpdateData];
@@ -4659,6 +4689,7 @@ export enum Events {
   UserUpdate = 'userUpdate',
   UserNoteUpdate = 'userNoteUpdate',
   UserPresenceUpdate = 'userPresenceUpdate',
+  UserSettingsUpdate = 'userSettingsUpdate',
   PresenceUpdate = 'presenceUpdate',
   RelationshipAdd = 'relationshipAdd',
   RelationshipRemove = 'relationshipRemove',

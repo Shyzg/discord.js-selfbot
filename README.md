@@ -15,6 +15,7 @@
 - Discord web-client REST/gateway fingerprint with per-client session UUIDs
 - Op-37 guild member list fetching and large-guild subscriptions, and group DM messaging
 - Friends and friend requests, friend presences, joining through invites, private notes, read state, and your real status across sessions
+- Synced account settings: status and custom status on every device
 
 ## Installation
 
@@ -118,6 +119,24 @@ await message.markRead();
 
 // The status other users see, across all your sessions (client.presence is what this client asks for)
 console.log(client.user.status, client.user.sessions.size);
+```
+
+### Status and custom status (synced settings)
+
+`client.user.settings` reads and writes the account's synced settings, so a change shows on every device, like changing it in the app. Every other setting is kept exactly as Discord sent it. Discord rate limits these updates heavily: change several values with one `edit()`.
+
+```js
+console.log(client.user.settings.status, client.user.settings.customStatus);
+
+await client.user.settings.edit({
+  status: 'dnd',
+  customStatus: { text: 'Focusing', emoji: '🔕', expiresAt: Date.now() + 60 * 60_000 },
+});
+await client.user.settings.setCustomStatus(null); // clear it
+
+client.on(Events.UserSettingsUpdate, (oldSettings, newSettings) => {
+  if (oldSettings.status !== newSettings.status) console.log(`status: ${newSettings.status}`);
+});
 ```
 
 ### Limiting memory on long-running accounts

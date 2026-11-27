@@ -73,11 +73,13 @@ import {
   ClientApplication,
   ClientSession,
   ClientUser,
+  ClientUserSettings,
   CloseEvent,
   Collection,
   Collector,
   CommandOptionNonChoiceResolvableType,
   ContainerComponentData,
+  CustomStatus,
   DefaultSoundboardSound,
   DirectoryChannel,
   DMChannel,
@@ -153,6 +155,7 @@ import {
   Presence,
   PresenceManager,
   PresenceStatus,
+  PresenceStatusData,
   ReactionCollector,
   Relationship,
   RelationshipManager,
@@ -1721,5 +1724,26 @@ declare const scheduledEventManager: GuildScheduledEventManager;
   client.on('userPresenceUpdate', (oldPresence, newPresence) => {
     expectType<Presence | null>(oldPresence);
     expectType<Presence>(newPresence);
+  });
+}
+
+// User-account synced settings: status and custom status
+{
+  const settings = clientUser.settings;
+  expectType<ClientUserSettings>(settings);
+  expectType<PresenceStatusData | null>(settings.status);
+  expectType<CustomStatus | null>(settings.customStatus);
+  expectType<Promise<ClientUserSettings>>(settings.fetch());
+  expectType<Promise<ClientUserSettings>>(settings.setStatus('dnd'));
+  expectType<Promise<ClientUserSettings>>(
+    settings.setCustomStatus({ text: 'Busy', emoji: '🔕', expiresAt: Date.now() }),
+  );
+  expectType<Promise<ClientUserSettings>>(settings.setCustomStatus(null));
+  expectType<Promise<ClientUserSettings>>(settings.edit({ status: 'idle', customStatus: { text: 'brb' } }));
+  // @ts-expect-error `unknown` is what a session asks for, not a status an account can choose
+  settings.setStatus('unknown');
+  client.on('userSettingsUpdate', (oldSettings, newSettings) => {
+    expectType<ClientUserSettings>(oldSettings);
+    expectType<ClientUserSettings>(newSettings);
   });
 }

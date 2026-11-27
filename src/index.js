@@ -116,6 +116,7 @@ exports.BaseChannel = require('./structures/BaseChannel').BaseChannel;
 exports.ClientApplication = require('./structures/ClientApplication');
 exports.ClientPresence = require('./structures/ClientPresence');
 exports.ClientUser = require('./structures/ClientUser');
+exports.ClientUserSettings = require('./structures/ClientUserSettings');
 exports.Collector = require('./structures/interfaces/Collector');
 exports.Component = require('./structures/Component');
 exports.ContainerComponent = require('./structures/ContainerComponent');
