@@ -7,6 +7,7 @@ const { setImmediate } = require('node:timers/promises');
 const { WebSocketShard, WebSocketShardEvents } = require('@discordjs/ws');
 const { GatewayOpcodes } = require('discord-api-types/v10');
 const { Client } = require('../src');
+const ClientUser = require('../src/structures/ClientUser');
 const { applyUserIdentify, CAPABILITIES, createUserProperties } = require('../src/util/UserProperties');
 const {
   isUserIdentify,
@@ -86,6 +87,32 @@ test('Client#login defaults IDENTIFY presence to web-client unknown/since:0 with
     since: 0,
     afk: false,
   });
+});
+
+test('setActivity/setAFK keep the unknown status instead of switching the account online', async () => {
+  const client = new Client();
+  client.user = new ClientUser(client, { id: '1', username: 'me' });
+  const statuses = [];
+  client.ws.broadcast = packet => statuses.push(packet.d.status);
+
+  client.user.setActivity('Spotify');
+  client.user.setAFK(true);
+  assert.deepEqual(statuses, ['unknown', 'unknown']);
+
+  // A status the caller picked sticks for later activity changes.
+  client.user.setStatus('idle');
+  client.user.setActivity('Spotify');
+  assert.deepEqual(statuses.slice(2), ['idle', 'idle']);
+
+  // A presence option without a status identifies as unknown as well.
+  const activityClient = new Client({ presence: { activities: [{ name: 'Spotify' }] } });
+  activityClient.ws.connect = async () => {};
+  await activityClient.login('token');
+  assert.equal(activityClient.options.ws.presence.status, 'unknown');
+  assert.equal(activityClient.options.ws.presence.activities[0].name, 'Spotify');
+
+  await client.destroy();
+  await activityClient.destroy();
 });
 
 test('user shard stops reconnecting on close code 4015 (Too Many Sessions)', async () => {

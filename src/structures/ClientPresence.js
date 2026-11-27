@@ -11,7 +11,9 @@ const Events = require('../util/Events');
  */
 class ClientPresence extends Presence {
   constructor(client, data = {}) {
-    super(client, { ...data, status: data.status ?? 'online', user: { id: null } });
+    // `unknown` lets the gateway keep the status set in the user's other apps (the IDENTIFY default too), so a later
+    // setActivity()/setAFK() can't switch an invisible, idle or do-not-disturb account to online.
+    super(client, { ...data, status: data.status ?? 'unknown', user: { id: null } });
   }
 
   /**

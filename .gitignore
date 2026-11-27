@@ -8,6 +8,8 @@ node_modules/
 !.env.example
 test/auth.js
 test/auth.json
+# Password-manager vault exports (passkeyLogin reads credentials from these)
+bitwarden*.json
 
 # Logs & runtime
 logs

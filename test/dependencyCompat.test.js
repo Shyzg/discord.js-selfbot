@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { inspect } = require('node:util');
 const {
+  CompressionMethod,
   WebSocketManager: WSWebSocketManager,
   WebSocketShard: WSWebSocketShard,
   WebSocketShardEvents: WSEvents,
@@ -140,14 +141,18 @@ test('connect() never requests the bot-only /gateway/bot, and targets the web cl
     throw new Error('unexpected REST call');
   };
   let gateway;
+  let compression;
   t.mock.method(WSWebSocketManager.prototype, 'connect', async function connect() {
     gateway = await this.fetchGatewayInformation();
+    compression = this.options.compression;
   });
 
   await client.ws.connect();
   assert.deepEqual(routes, []);
   assert.equal(gateway.url, 'wss://gateway.discord.gg');
   assert.equal(client.ws.gateway, 'wss://gateway.discord.gg/');
+  // Transport compression is always on: zlib-sync when installed, otherwise node:zlib.
+  assert.ok([CompressionMethod.ZlibNative, CompressionMethod.ZlibSync].includes(compression));
   await client.destroy();
 });
 

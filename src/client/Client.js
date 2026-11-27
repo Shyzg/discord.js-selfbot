@@ -28,6 +28,7 @@ const Events = require('../util/Events');
 const IntentsBitField = require('../util/IntentsBitField');
 const Status = require('../util/Status');
 const Sweepers = require('../util/Sweepers');
+const { stripRequestBody } = require('../util/UserProperties');
 
 /**
  * The main hub for interacting with the Discord API, and the starting point for any bot.
@@ -235,11 +236,7 @@ class Client extends BaseClient {
     const body = { login, password, undelete: false, login_source: null, gift_code_sku_id: null };
     const token = await this._passwordLogin(body, captcha)
       .then(data => this._completeMfa(data, { totpSecret, mfa }))
-      .catch(error => {
-        // @discordjs/rest errors keep the request body, so logging one would print the password or MFA ticket/code.
-        if (error?.requestBody) delete error.requestBody;
-        throw error;
-      });
+      .catch(stripRequestBody);
     if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
     return this.login(token);
   }
@@ -291,10 +288,7 @@ class Client extends BaseClient {
       backup: Boolean(data.backup),
       webauthn: Boolean(data.webauthn),
       sendSms: () =>
-        this.rest.post('/auth/mfa/sms/send', { body: { ticket: data.ticket }, auth: false }).catch(error => {
-          if (error?.requestBody) delete error.requestBody;
-          throw error;
-        }),
+        this.rest.post('/auth/mfa/sms/send', { body: { ticket: data.ticket }, auth: false }).catch(stripRequestBody),
     });
     if (!['totp', 'sms', 'backup'].includes(method)) {
       throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'mfa method', "one of 'totp', 'sms', 'backup'");
@@ -365,10 +359,7 @@ class Client extends BaseClient {
         auth: false,
         body: { credential, ticket: start.ticket },
       })
-      .catch(error => {
-        if (error?.requestBody) delete error.requestBody;
-        throw error;
-      });
+      .catch(stripRequestBody);
     if (!token) throw new DiscordjsError(ErrorCodes.TokenInvalid);
     return this.login(token);
   }

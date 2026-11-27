@@ -175,7 +175,9 @@ class WebSocketManager extends EventEmitter {
         updateSessionInfo: (shardId, sessionInfo) => {
           this.shards.get(shardId).sessionInfo = sessionInfo;
         },
-        compression: zlib ? CompressionMethod.ZlibSync : null,
+        // A user READY lists every guild, channel and role (often megabytes), and the web client always compresses:
+        // fall back to node:zlib when the optional native zlib-sync is not installed.
+        compression: zlib ? CompressionMethod.ZlibSync : CompressionMethod.ZlibNative,
       };
       // Spoof the web-client IDENTIFY (properties here, capabilities/client_state via the shard-send patch).
       wsOptions.identifyProperties = this.client._userProperties.superProperties;

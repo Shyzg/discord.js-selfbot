@@ -79,10 +79,22 @@ User accounts cannot use op-8 `guild.members.fetch()` freely on large guilds. Us
 const members = await guild.members.fetchMemberList(channel, { limit: 200 });
 ```
 
+### Limiting memory on long-running accounts
+
+By default every channel keeps its last 200 messages in memory for as long as the client runs. To drop older ones, add a message sweeper (the default thread sweeper is kept). `messageDelete`, `messageUpdate`, and reaction events for a swept message only fire if you enable `Partials.Message`:
+
+```js
+const client = new Client({
+  // Every hour, drop cached messages older than 30 minutes
+  sweepers: { messages: { interval: 3_600, lifetime: 1_800 } },
+});
+```
+
 ## Differences from discord.js
 
 - **User accounts only:** `intents` are optional and ignored; `client.application` is `null` for user sessions.
 - **No user embeds or components:** Sending embeds or components rejects with `MessageEmbedsUserAccount` / `MessageComponentsUserAccount` (webhooks can still send them).
+- **Status is left alone:** `client.presence.status` starts as `unknown`, so Discord keeps the status set in your other apps; `setActivity()` and `setAFK()` no longer switch you to online. Call `setStatus()` to pick one.
 - **Group DMs:** `PartialGroupDMChannel` supports `send`, `sendTyping`, `fetch`, `delete`, `createMessageCollector`, and `awaitMessages`.
 - **Bot-only APIs removed:** Sharding (`ShardingManager`), interactions/modals/component collectors, application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `bulkDelete`/`bulkDeletable`, `fetchActiveThreads`/`fetchActive`, `ThreadMemberManager#fetch`/`fetchMe`, `ThreadChannel#fetchOwner`, `VoiceStateManager#fetch`/`VoiceState#fetch`, and `members.list`/`members.search`.
 

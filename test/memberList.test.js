@@ -64,15 +64,20 @@ test('fetchMemberList collects members from the gateway member list via op 37', 
   assert.equal(capped.size, 1);
 });
 
-test('fetchMemberList requires a finite positive limit (op-37 is a window, not a bulk fetch)', () => {
+test('fetchMemberList requires a finite positive limit (op-37 is a window, not a bulk fetch)', async () => {
   const client = new Client();
   const guild = client.guilds._add({ id: '1', properties: { name: 'G' } });
-  assert.throws(() => guild.members.fetchMemberList('123456789012345678'), /limit option must be/);
-  assert.throws(() => guild.members.fetchMemberList('123456789012345678', { limit: Infinity }), /limit option must be/);
-  assert.throws(
-    () => guild.members.fetchMemberList('123456789012345678', { limit: Number.NaN }),
+  // Bad input rejects (reaching a caller's .catch) instead of throwing synchronously past it.
+  await assert.rejects(guild.members.fetchMemberList('123456789012345678'), /limit option must be/);
+  await assert.rejects(
+    guild.members.fetchMemberList('123456789012345678', { limit: Infinity }),
     /limit option must be/,
   );
+  await assert.rejects(
+    guild.members.fetchMemberList('123456789012345678', { limit: Number.NaN }),
+    /limit option must be/,
+  );
+  await assert.rejects(guild.members.fetchMemberList(null, { limit: 1 }), /channel option must be/);
 });
 
 test('fetchMemberList steps one 100-slot range at a time, handles group headers past limit, and cleans up on error', async () => {

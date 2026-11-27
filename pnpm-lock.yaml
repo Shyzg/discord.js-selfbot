@@ -24,7 +24,7 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0
       '@discordjs/ws':
-        specifier: ^2.0.4
+        specifier: 2.0.4
         version: 2.0.4
       '@sapphire/snowflake':
         specifier: 4.0.0

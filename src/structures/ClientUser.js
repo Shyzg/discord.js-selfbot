@@ -3,6 +3,7 @@
 const { Routes } = require('discord-api-types/v10');
 const User = require('./User');
 const { resolveImage } = require('../util/DataResolver');
+const { stripRequestBody } = require('../util/UserProperties');
 
 /**
  * Represents the logged in client's Discord user.
@@ -69,10 +70,7 @@ class ClientUser extends User {
           password,
         },
       })
-      .catch(error => {
-        if (error?.requestBody) delete error.requestBody;
-        throw error;
-      });
+      .catch(stripRequestBody);
 
     const { updated } = this.client.actions.UserUpdate.handle(data);
     return updated ?? this;

@@ -18,6 +18,8 @@ const { flatten } = require('../util/Util');
  * * **`idle`** - user is AFK
  * * **`offline`** - user is offline or invisible
  * * **`dnd`** - user is in Do Not Disturb
+ * * **`unknown`** - the client's own presence before a status is set; Discord keeps the status from the user's
+ * other apps
  * @typedef {string} PresenceStatus
  */
 

@@ -167,7 +167,9 @@ class GuildMemberManager extends CachedManager {
    * @param {number} [options.time=5000] Idle time (ms) after the last update before resolving
    * @returns {Promise<Collection<Snowflake, GuildMember>>}
    */
-  fetchMemberList(channel, { limit, time = 5_000 } = {}) {
+  async fetchMemberList(channel, { limit, time = 5_000 } = {}) {
+    // async so bad input rejects like any other fetch. Nothing here awaits, so the queue slot below is still taken
+    // synchronously and overlapping calls stay in order.
     const channelId = this.guild.channels.resolveId(channel);
     if (!channelId) throw new DiscordjsTypeError(ErrorCodes.ClientInvalidOption, 'channel', 'a channel in this guild');
     // op-37 is a windowed subscription, not a bulk fetch: require a finite positive limit so calls can't loop forever
