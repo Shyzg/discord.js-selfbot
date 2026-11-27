@@ -184,15 +184,14 @@ class GuildMemberManager extends CachedManager {
         const collected = new Collection();
         let nextStart = 0;
         let subscribed = false;
+        // Each op 37 replaces the guild's subscription, so keep the flags of a Guild#subscribe() in every frame.
         const sendSubscription = channels =>
           this.guild.shard.send({
             op: 37,
             d: {
               subscriptions: {
                 [this.guild.id]: {
-                  typing: true,
-                  threads: false,
-                  activities: true,
+                  ...(this.guild._subscription ?? { typing: true, threads: false, activities: true }),
                   channels,
                 },
               },

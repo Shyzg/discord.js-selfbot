@@ -151,12 +151,7 @@ class WebSocketManager extends EventEmitter {
     if (this._ws && this._ws.token !== this.client.token) {
       this.client.voice.destroy();
       await this.destroy();
-      this.client.readyTimestamp = null;
-      this.client.user = null;
-      this.client.application = null;
-      this.client.guilds.cache.clear();
-      this.client.channels.cache.clear();
-      this.client.users.cache.clear();
+      this.client._clearAccountState();
     }
     // A previous destroy() must not leave this new session marked as destroyed
     this.destroyed = false;

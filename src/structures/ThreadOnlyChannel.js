@@ -238,6 +238,7 @@ TextBasedChannel.applyToClass(ThreadOnlyChannel, true, [
   'lastMessage',
   'lastPinAt',
   'sendTyping',
+  'markRead',
   'createMessageCollector',
   'awaitMessages',
 ]);

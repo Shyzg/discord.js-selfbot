@@ -117,6 +117,7 @@ import {
   FileUploadType,
   FormattingPatterns,
   ForumLayoutType,
+  GatewayActivity,
   GatewayAutoModerationActionExecutionDispatchData,
   GatewayDispatchEvents,
   GatewayIntentBits,
@@ -162,6 +163,7 @@ import {
   PollLayoutType,
   RESTGetAPIGuildOnboardingResult,
   ReactionType,
+  RelationshipType,
   RoleFlags,
   SelectMenuDefaultValueType,
   SeparatorSpacingSize,
@@ -885,8 +887,10 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
   public get emojis(): BaseGuildEmojiManager;
   public guilds: GuildManager;
   public options: Omit<ClientOptions, 'intents'> & { intents: IntentsBitField };
+  public presences: PresenceManager;
   public get readyAt(): If<Ready, Date>;
   public readyTimestamp: If<Ready, number>;
+  public relationships: RelationshipManager;
   public sweepers: Sweepers;
   public token: If<Ready, string, string | null>;
   public get uptime(): If<Ready, number>;
@@ -894,6 +898,10 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
   public users: UserManager;
   public voice: ClientVoiceManager;
   public ws: WebSocketManager;
+  public acceptInvite(
+    invite: InviteResolvable,
+    options?: CaptchaRequestOptions,
+  ): Promise<Guild | PartialGroupDMChannel | Invite>;
   public destroy(): Promise<void>;
   public fetchGuildPreview(guild: GuildResolvable): Promise<GuildPreview>;
   public fetchInvite(invite: InviteResolvable, options?: ClientFetchInviteOptions): Promise<Invite>;
@@ -911,13 +919,7 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
     password: string,
     options?: {
       totpSecret?: string;
-      captcha?: (challenge: {
-        captcha_sitekey: string;
-        captcha_service: string;
-        captcha_rqtoken?: string;
-        captcha_rqdata?: string;
-        captcha_session_id?: string;
-      }) => Awaitable<string>;
+      captcha?: CaptchaSolver;
       mfa?: (context: {
         ticket: string;
         totp: boolean;
@@ -1009,6 +1011,8 @@ export class ClientPresence extends Presence {
 export class ClientUser extends User {
   public mfaEnabled: boolean | null;
   public get presence(): ClientPresence;
+  public sessions: Collection<string, ClientSession>;
+  public get status(): PresenceStatus | null;
   public verified: boolean;
   public edit(options: ClientUserEditOptions): Promise<this>;
   public setActivity(options?: ActivityOptions): ClientPresence;
@@ -1232,6 +1236,7 @@ export class Guild extends AnonymousGuild {
   public leave(): Promise<Guild>;
   public disableInvites(disabled?: boolean): Promise<Guild>;
   public setIncidentActions(incidentActions: IncidentActionsEditOptions): Promise<IncidentActions>;
+  public subscribe(options?: GuildSubscribeOptions): Promise<void>;
   public setAFKChannel(afkChannel: VoiceChannelResolvable | null, reason?: string): Promise<Guild>;
   public setAFKTimeout(afkTimeout: number, reason?: string): Promise<Guild>;
   public setBanner(banner: BufferResolvable | Base64Resolvable | null, reason?: string): Promise<Guild>;
@@ -1854,6 +1859,7 @@ export class Message<InGuild extends boolean = boolean> extends Base {
   public toJSON(): unknown;
   public toString(): string;
   public unpin(reason?: string): Promise<Message<InGuild>>;
+  public markRead(): Promise<Message<InGuild>>;
   public inGuild(): this is Message<true>;
 }
 
@@ -2090,7 +2096,14 @@ export interface DefaultReactionEmoji {
 export interface ThreadOnlyChannel
   extends Omit<
     TextBasedChannelFields,
-    'send' | 'lastMessage' | 'lastPinAt' | 'sendTyping' | 'createMessageCollector' | 'awaitMessages' | 'messages'
+    | 'send'
+    | 'lastMessage'
+    | 'lastPinAt'
+    | 'sendTyping'
+    | 'markRead'
+    | 'createMessageCollector'
+    | 'awaitMessages'
+    | 'messages'
   > {}
 export abstract class ThreadOnlyChannel extends GuildChannel {
   public type: ChannelType.GuildForum | ChannelType.GuildMedia;
@@ -2777,6 +2790,9 @@ export class User extends Base {
   public fetch(force?: boolean): Promise<User>;
   /** @deprecated This method is deprecated and will be removed in the next major version. Flags may still be retrieved via {@link User.fetch} */
   public fetchFlags(force?: boolean): Promise<UserFlagsBitField>;
+  public get note(): string | null;
+  public fetchNote(force?: boolean): Promise<string | null>;
+  public setNote(note: string | null): Promise<string | null>;
   public toString(): UserMention;
 }
 
@@ -3377,7 +3393,17 @@ export class GuildManager extends CachedManager<Snowflake, Guild, GuildResolvabl
     guild: GuildResolvable,
     incidentActions: IncidentActionsEditOptions,
   ): Promise<IncidentActions>;
+  public subscribe(
+    guilds: GuildResolvable | readonly GuildResolvable[] | ReadonlyCollection<Snowflake, Guild>,
+    options?: GuildSubscribeOptions,
+  ): Promise<void>;
   public widgetImageURL(guild: GuildResolvable, style?: GuildWidgetStyle): string;
+}
+
+export interface GuildSubscribeOptions {
+  typing?: boolean;
+  threads?: boolean;
+  activities?: boolean;
 }
 
 export interface AddOrRemoveGuildMemberRoleOptions {
@@ -3625,6 +3651,50 @@ export class PresenceManager extends CachedManager<Snowflake, Presence, Presence
   private constructor(client: Client<true>, iterable?: Iterable<RawPresenceData>);
 }
 
+export class Relationship extends Base {
+  private constructor(client: Client<true>, data: unknown);
+  public id: Snowflake;
+  public type: RelationshipType;
+  public nickname: string | null;
+  public sinceTimestamp: number | null;
+  public get since(): Date | null;
+  public get user(): User | null;
+}
+
+export class RelationshipManager extends CachedManager<Snowflake, Relationship, Relationship | UserResolvable> {
+  private constructor(client: Client<true>, iterable?: Iterable<unknown>);
+  public get friends(): Collection<Snowflake, Relationship>;
+  public get blocked(): Collection<Snowflake, Relationship>;
+  public get incoming(): Collection<Snowflake, Relationship>;
+  public get outgoing(): Collection<Snowflake, Relationship>;
+  public fetch(): Promise<Collection<Snowflake, Relationship>>;
+  public sendFriendRequest(username: string, options?: CaptchaRequestOptions): Promise<void>;
+  public addFriend(user: UserResolvable, options?: CaptchaRequestOptions): Promise<void>;
+  public block(user: UserResolvable): Promise<void>;
+  public remove(user: UserResolvable): Promise<void>;
+  public setNickname(user: UserResolvable, nickname: string): Promise<void>;
+}
+
+export type CaptchaSolver = (challenge: {
+  captcha_sitekey: string;
+  captcha_service: string;
+  captcha_rqtoken?: string;
+  captcha_rqdata?: string;
+  captcha_session_id?: string;
+}) => Awaitable<string>;
+
+export interface CaptchaRequestOptions {
+  captcha?: CaptchaSolver;
+}
+
+export interface ClientSession {
+  id: string;
+  status: PresenceStatus;
+  active: boolean | null;
+  clientInfo: { client: string; os: string; version: number };
+  activities: GatewayActivity[];
+}
+
 export class ReactionManager extends CachedManager<Snowflake | string, MessageReaction, MessageReactionResolvable> {
   private constructor(message: Message, iterable?: Iterable<RawMessageReactionData>);
   public message: Message;
@@ -3717,6 +3787,9 @@ export class ThreadMemberManager extends CachedManager<Snowflake, ThreadMember, 
 export class UserManager extends CachedManager<Snowflake, User, UserResolvable> {
   private constructor(client: Client<true>, iterable?: Iterable<RawUserData>);
   private dmChannel(userId: Snowflake): DMChannel | null;
+  public notes: Collection<Snowflake, string>;
+  public fetchNote(user: UserResolvable, options?: { force?: boolean }): Promise<string | null>;
+  public setNote(user: UserResolvable, note: string | null): Promise<string | null>;
   public createDM(user: UserResolvable, options?: BaseFetchOptions): Promise<DMChannel>;
   public deleteDM(user: UserResolvable): Promise<DMChannel>;
   public fetch(user: UserResolvable, options?: BaseFetchOptions): Promise<User>;
@@ -3756,6 +3829,7 @@ export interface TextBasedChannelFields<InGuild extends boolean = boolean, InDM 
   createWebhook(options: ChannelWebhookCreateOptions): Promise<Webhook<WebhookType.Incoming>>;
   fetchWebhooks(): Promise<Collection<Snowflake, Webhook<WebhookType.ChannelFollower | WebhookType.Incoming>>>;
   sendTyping(): Promise<void>;
+  markRead(): Promise<this>;
   setRateLimitPerUser(rateLimitPerUser: number, reason?: string): Promise<this>;
   setNSFW(nsfw?: boolean, reason?: string): Promise<this>;
 }
@@ -4374,6 +4448,10 @@ export interface ClientEvents {
   ];
   messageUpdate: [oldMessage: Message | PartialMessage, newMessage: Message];
   presenceUpdate: [oldPresence: Presence | null, newPresence: Presence];
+  relationshipAdd: [relationship: Relationship, shouldNotify: boolean];
+  relationshipRemove: [relationship: Relationship];
+  relationshipUpdate: [oldRelationship: Relationship | null, newRelationship: Relationship];
+  sessionsUpdate: [oldSessions: Collection<string, ClientSession>, newSessions: Collection<string, ClientSession>];
   /** @deprecated Use {@link ClientEvents.clientReady} instead. */
   ready: [client: Client<true>];
   roleCreate: [role: Role];
@@ -4390,6 +4468,8 @@ export interface ClientEvents {
   ];
   threadUpdate: [oldThread: AnyThreadChannel, newThread: AnyThreadChannel];
   typingStart: [typing: Typing];
+  userNoteUpdate: [user: User, oldNote: string | null, newNote: string | null];
+  userPresenceUpdate: [oldPresence: Presence | null, newPresence: Presence];
   userUpdate: [oldUser: User | PartialUser, newUser: User];
   voiceChannelEffectSend: [voiceChannelEffect: VoiceChannelEffect];
   voiceServerUpdate: [data: VoiceServerUpdateData];
@@ -4577,7 +4657,13 @@ export enum Events {
   ThreadMemberUpdate = 'threadMemberUpdate',
   ThreadMembersUpdate = 'threadMembersUpdate',
   UserUpdate = 'userUpdate',
+  UserNoteUpdate = 'userNoteUpdate',
+  UserPresenceUpdate = 'userPresenceUpdate',
   PresenceUpdate = 'presenceUpdate',
+  RelationshipAdd = 'relationshipAdd',
+  RelationshipRemove = 'relationshipRemove',
+  RelationshipUpdate = 'relationshipUpdate',
+  SessionsUpdate = 'sessionsUpdate',
   VoiceChannelEffectSend = 'voiceChannelEffectSend',
   VoiceServerUpdate = 'voiceServerUpdate',
   VoiceStateUpdate = 'voiceStateUpdate',

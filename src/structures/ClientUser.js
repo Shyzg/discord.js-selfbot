@@ -1,5 +1,6 @@
 'use strict';
 
+const { Collection } = require('@discordjs/collection');
 const { Routes } = require('discord-api-types/v10');
 const User = require('./User');
 const { resolveImage } = require('../util/DataResolver');
@@ -10,6 +11,66 @@ const { stripRequestBody } = require('../util/UserProperties');
  * @extends {User}
  */
 class ClientUser extends User {
+  constructor(client, data) {
+    super(client, data);
+
+    /**
+     * A gateway session of the client user: one logged-in client (app, browser tab or this library).
+     * @typedef {Object} ClientSession
+     * @property {string} id The session id; `all` is the combined presence other users see
+     * @property {string} status The status of the session
+     * @property {?boolean} active Whether the session is active, if Discord says
+     * @property {Object} clientInfo The kind of client: `client` (desktop, web, mobile, ...), `os` and `version`
+     * @property {APIActivity[]} activities The raw activities of the session
+     */
+
+    /**
+     * The client user's active gateway sessions, keyed by session id (user accounts only). Kept current by Discord's
+     * session list at READY and on every change.
+     * @type {Collection<string, ClientSession>}
+     */
+    this.sessions = new Collection();
+  }
+
+  /**
+   * The client user's overall status as other users see it, from {@link ClientUser#sessions}. Unlike
+   * {@link ClientPresence#status}, which is what this client asks for (`unknown` until a status is set), this is the
+   * status Discord settled on across all of the account's sessions.
+   * @type {?PresenceStatus}
+   * @readonly
+   */
+  get status() {
+    const own = this.client.ws.shards.first()?.sessionInfo?.sessionId;
+    return (this.sessions.get('all') ?? this.sessions.get(own) ?? this.sessions.first())?.status ?? null;
+  }
+
+  /**
+   * Replaces the session list.
+   * @param {Object[]} sessions The raw session objects
+   * @returns {Collection<string, ClientSession>} The previous sessions
+   * @private
+   */
+  _setSessions(sessions) {
+    const oldSessions = this.sessions;
+    this.sessions = new Collection(
+      sessions.map(session => [
+        session.session_id,
+        {
+          id: session.session_id,
+          status: session.status,
+          active: session.active ?? null,
+          clientInfo: {
+            client: session.client_info?.client ?? 'unknown',
+            os: session.client_info?.os ?? 'unknown',
+            version: session.client_info?.version ?? 0,
+          },
+          activities: session.activities ?? [],
+        },
+      ]),
+    );
+    return oldSessions;
+  }
+
   _patch(data) {
     super._patch(data);
 

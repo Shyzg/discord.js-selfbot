@@ -204,6 +204,19 @@ class TextBasedChannel {
   }
 
   /**
+   * Marks the channel as read up to its last message (user accounts only). Does nothing if the channel has no
+   * known last message.
+   * @returns {Promise<this>}
+   * @example
+   * // Clear the unread badge of a channel
+   * await channel.markRead();
+   */
+  async markRead() {
+    if (this.lastMessageId) await this.messages._ack(this.lastMessageId);
+    return this;
+  }
+
+  /**
    * Creates a Message Collector.
    * @param {MessageCollectorOptions} [options={}] The options to pass to the collector
    * @returns {MessageCollector}
@@ -316,6 +329,7 @@ class TextBasedChannel {
         'lastMessage',
         'lastPinAt',
         'sendTyping',
+        'markRead',
         'createMessageCollector',
         'awaitMessages',
         'fetchWebhooks',
