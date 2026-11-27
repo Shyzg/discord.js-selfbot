@@ -398,6 +398,58 @@ class GuildManager extends CachedManager {
   }
 
   /**
+   * Options for subscribing to a guild's events.
+   * @typedef {Object} GuildSubscribeOptions
+   * @property {boolean} [typing=true] Whether to receive typing events
+   * @property {boolean} [threads=true] Whether to receive thread events and the list of joined threads
+   * @property {boolean} [activities=true] Whether to receive activity updates
+   */
+
+  /**
+   * Subscribes to guilds the way the Discord app does when it opens them (user accounts only). Discord sends a user
+   * account no messages, typing, thread or member updates from a large guild (over 250 members) until it is
+   * subscribed. A subscription lasts for the gateway session, and the library sends it again after a re-identify.
+   * @param {GuildResolvable|GuildResolvable[]|Collection<Snowflake, Guild>} guilds The cached guild(s) to subscribe to
+   * @param {GuildSubscribeOptions} [options] Options for the subscription
+   * @returns {Promise<void>}
+   * @example
+   * // Receive messageCreate from every guild, including the large ones
+   * await client.guilds.subscribe(client.guilds.cache);
+   */
+  async subscribe(guilds, { typing = true, threads = true, activities = true } = {}) {
+    const list = guilds instanceof Collection ? [...guilds.values()] : Array.isArray(guilds) ? guilds : [guilds];
+    const subscription = { typing, threads, activities };
+    const resolved = list.map(guild => {
+      const cached = this.resolve(guild);
+      if (!cached) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'guilds', 'GuildResolvable of a cached guild');
+      return cached;
+    });
+    for (const guild of resolved) guild._subscription = subscription;
+    await this._sendSubscriptions(resolved);
+  }
+
+  /**
+   * Sends the stored subscriptions of these guilds over the gateway.
+   * @param {Guild[]} guilds Guilds that have a stored subscription
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _sendSubscriptions(guilds) {
+    const shard = this.client.ws.shards.first();
+    if (!shard) throw new Error('WebSocketManager is not connected');
+    // Gateway frames are capped at 15 KiB; 100 guilds per op 37 stays well under it. The shard sends them in order.
+    const frames = [];
+    for (let index = 0; index < guilds.length; index += 100) {
+      const batch = guilds.slice(index, index + 100);
+      frames.push({
+        op: 37,
+        d: { subscriptions: Object.fromEntries(batch.map(guild => [guild.id, guild._subscription])) },
+      });
+    }
+    await Promise.all(frames.map(frame => shard.send(frame)));
+  }
+
+  /**
    * Returns a URL for the PNG widget of a guild.
    * @param {GuildResolvable} guild The guild of the widget image
    * @param {GuildWidgetStyle} [style] The style for the widget image

@@ -20,4 +20,9 @@ module.exports = (client, { d: data }) => {
       if (userId) guild.presences._add({ ...presence, user: { id: userId }, guild });
     }
   }
+  // Overall presences of friends and implicit relationships, which belong to no guild.
+  for (const presence of data.merged_presences?.friends ?? []) {
+    const userId = presence.user_id ?? presence.user?.id;
+    if (userId) client.presences._add({ ...presence, user: { id: userId }, guild: null });
+  }
 };

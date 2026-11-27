@@ -126,6 +126,23 @@ class Guild extends AnonymousGuild {
      * @type {number}
      */
     this.shardId = data.shardId ?? 0;
+
+    /**
+     * The options of the last {@link Guild#subscribe}, sent again after a re-identify
+     * @type {?GuildSubscribeOptions}
+     * @private
+     */
+    Object.defineProperty(this, '_subscription', { value: null, writable: true });
+  }
+
+  /**
+   * Subscribes to this guild's events the way the Discord app does when it opens it (user accounts only). Needed to
+   * receive messages, typing, thread and member updates from a large guild (over 250 members).
+   * @param {GuildSubscribeOptions} [options] Options for the subscription
+   * @returns {Promise<void>}
+   */
+  subscribe(options) {
+    return this.client.guilds.subscribe(this, options);
   }
 
   /**

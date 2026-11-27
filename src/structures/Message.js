@@ -831,6 +831,19 @@ class Message extends Base {
   }
 
   /**
+   * Marks the channel as read up to this message (user accounts only).
+   * @returns {Promise<Message>}
+   * @example
+   * // Mark everything up to this message as read
+   * await message.markRead();
+   */
+  async markRead() {
+    if (!this.channel) throw new DiscordjsError(ErrorCodes.ChannelNotCached);
+    await this.channel.messages._ack(this.id);
+    return this;
+  }
+
+  /**
    * Adds a reaction to the message.
    * @param {EmojiIdentifierResolvable} emoji The emoji to react with
    * @returns {Promise<MessageReaction>}

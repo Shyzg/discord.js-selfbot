@@ -197,7 +197,7 @@ test('re-logging in with a differing token without destroy() resets session stat
   await client.destroy();
 });
 
-test('switching accounts through READY clears old user ID, guilds, DMs, and users cache', async t => {
+test('switching accounts through READY clears old user ID, guilds, DMs, users, friends, presences and notes', async t => {
   const client = new Client();
   t.mock.method(WSWebSocketManager.prototype, 'connect', async () => {});
 
@@ -205,6 +205,7 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
     d: {
       user: { id: userId, username, discriminator: '0' },
       users: [{ id: `${userId}9`, username: `friend-${userId}` }],
+      relationships: [{ id: `${userId}9`, user_id: `${userId}9`, type: 1, nickname: null }],
       private_channels: [{ id: dmId, type: ChannelType.DM, recipient_ids: [`${userId}9`] }],
       guilds: [
         {
@@ -226,6 +227,12 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
     handlers.READY(client, payload, shard);
   };
 
+  // Account-scoped state READY does not resend: a friend presence and a private note.
+  const addAccountExtras = userId => {
+    client.presences._add({ user: { id: `${userId}9` }, status: 'online', guild: null });
+    client.users.notes.set(`${userId}9`, `note by ${userId}`);
+  };
+
   // Login as Account A
   await client.login('TOKEN.ONE.AAA');
   dispatchReady('111', 'alice', '10', '900');
@@ -233,6 +240,8 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
   assert.equal(client.user.username, 'alice');
   assert.ok(client.guilds.cache.has('10'));
   assert.ok(client.channels.cache.has('900'));
+  assert.ok(client.relationships.friends.has('1119'));
+  addAccountExtras('111');
 
   // Destroy then login as Account B
   await client.destroy();
@@ -240,6 +249,9 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
   assert.equal(client.guilds.cache.size, 0);
   assert.equal(client.channels.cache.size, 0);
   assert.equal(client.users.cache.size, 0);
+  assert.equal(client.relationships.cache.size, 0);
+  assert.equal(client.presences.cache.size, 0);
+  assert.equal(client.users.notes.size, 0);
 
   await client.login('TOKEN.TWO.BBB');
   dispatchReady('999', 'bob', '20', '901');
@@ -249,6 +261,8 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
   assert.equal(client.channels.cache.has('900'), false);
   assert.equal(client.users.cache.has('111'), false);
   assert.equal(client.guilds.cache.get('20')?.members.me?.id, '999');
+  assert.deepEqual([...client.relationships.cache.keys()], ['9999']);
+  addAccountExtras('999');
 
   // Switch directly to Account C without calling destroy() first
   await client.login('TOKEN.THREE.CCC');
@@ -259,6 +273,9 @@ test('switching accounts through READY clears old user ID, guilds, DMs, and user
   assert.equal(client.channels.cache.has('901'), false);
   assert.equal(client.users.cache.has('999'), false);
   assert.equal(client.guilds.cache.get('30')?.members.me?.id, '777');
+  assert.deepEqual([...client.relationships.cache.keys()], ['7779']);
+  assert.equal(client.presences.cache.size, 0);
+  assert.equal(client.users.notes.size, 0);
 
   await client.destroy();
 });

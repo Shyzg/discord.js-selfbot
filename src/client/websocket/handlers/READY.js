@@ -1,5 +1,7 @@
 'use strict';
 
+const Events = require('../../../util/Events');
+
 let ClientUser;
 
 module.exports = (client, { d: data }, shard) => {
@@ -19,6 +21,9 @@ module.exports = (client, { d: data }, shard) => {
     const recipients = channel.recipient_ids?.map(id => users.get(id) ?? { id }) ?? channel.recipients;
     client.channels._add({ ...channel, recipients });
   }
+  // A READY (also after a re-identify) is the full relationship and session state, so it replaces the caches.
+  client.relationships._setAll(data.relationships ?? []);
+  client.user._setSessions(data.sessions ?? []);
 
   for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;
@@ -26,6 +31,12 @@ module.exports = (client, { d: data }, shard) => {
     // User READY moves members into `merged_members` (one array per guild, `user_id` instead of `user`).
     const me = data.merged_members?.[index]?.find(member => member.user_id === data.user.id);
     if (me) cached.members._add({ ...me, user: data.user });
+  }
+
+  // A re-identify starts a session without the guild subscriptions of the old one; send them again.
+  const subscribed = [...client.guilds.cache.filter(guild => guild._subscription).values()];
+  if (subscribed.length) {
+    client.guilds._sendSubscriptions(subscribed).catch(error => client.emit(Events.ShardError, error, shard.id));
   }
 
   shard.checkReady();

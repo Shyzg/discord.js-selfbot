@@ -60,6 +60,10 @@
  * @property {string} MessageReactionRemoveEmoji messageReactionRemoveEmoji
  * @property {string} MessageUpdate messageUpdate
  * @property {string} PresenceUpdate presenceUpdate
+ * @property {string} RelationshipAdd relationshipAdd
+ * @property {string} RelationshipRemove relationshipRemove
+ * @property {string} RelationshipUpdate relationshipUpdate
+ * @property {string} SessionsUpdate sessionsUpdate
  * @property {string} SoundboardSounds soundboardSounds
  * @property {string} ShardDisconnect shardDisconnect
  * @property {string} ShardError shardError
@@ -76,6 +80,8 @@
  * @property {string} ThreadMemberUpdate threadMemberUpdate
  * @property {string} ThreadUpdate threadUpdate
  * @property {string} TypingStart typingStart
+ * @property {string} UserNoteUpdate userNoteUpdate
+ * @property {string} UserPresenceUpdate userPresenceUpdate
  * @property {string} UserUpdate userUpdate
  * @property {string} VoiceChannelEffectSend voiceChannelEffectSend
  * @property {string} VoiceServerUpdate voiceServerUpdate
@@ -148,6 +154,10 @@ module.exports = {
   MessageReactionRemoveEmoji: 'messageReactionRemoveEmoji',
   MessageUpdate: 'messageUpdate',
   PresenceUpdate: 'presenceUpdate',
+  RelationshipAdd: 'relationshipAdd',
+  RelationshipRemove: 'relationshipRemove',
+  RelationshipUpdate: 'relationshipUpdate',
+  SessionsUpdate: 'sessionsUpdate',
   SoundboardSounds: 'soundboardSounds',
   Raw: 'raw',
   ShardDisconnect: 'shardDisconnect',
@@ -165,6 +175,8 @@ module.exports = {
   ThreadMemberUpdate: 'threadMemberUpdate',
   ThreadUpdate: 'threadUpdate',
   TypingStart: 'typingStart',
+  UserNoteUpdate: 'userNoteUpdate',
+  UserPresenceUpdate: 'userPresenceUpdate',
   UserUpdate: 'userUpdate',
   VoiceChannelEffectSend: 'voiceChannelEffectSend',
   VoiceServerUpdate: 'voiceServerUpdate',

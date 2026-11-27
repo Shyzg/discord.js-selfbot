@@ -307,6 +307,21 @@ class MessageManager extends CachedManager {
   }
 
   /**
+   * Marks the channel as read up to a message (user accounts only).
+   * @param {Snowflake} messageId The id of the last message to mark as read
+   * @returns {Promise<void>}
+   * @private
+   */
+  async _ack(messageId) {
+    // Discord requires the read-state flags whenever they differ from the stored ones: IS_GUILD_CHANNEL (1 << 0) and
+    // IS_THREAD (1 << 1). shortcut: IS_MENTION_LOW_IMPORTANCE (1 << 2) is never set; compute it if acks start failing.
+    const flags = (this.channel.guildId ? 1 << 0 : 0) | (this.channel.isThread() ? 1 << 1 : 0);
+    await this.client.rest.post(`${Routes.channelMessage(this.channel.id, messageId)}/ack`, {
+      body: { token: null, flags },
+    });
+  }
+
+  /**
    * Adds a reaction to a message, even if it's not cached.
    * @param {MessageResolvable} message The message to react to
    * @param {EmojiIdentifierResolvable} emoji The emoji to react with

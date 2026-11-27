@@ -27,7 +27,8 @@ class ThreadListSyncAction extends Action {
       return coll.set(thread.id, thread);
     }, new Collection());
 
-    for (const rawMember of Object.values(data.members)) {
+    // User accounts get this on guild subscription without `members` when they joined none of the threads.
+    for (const rawMember of data.members ?? []) {
       // Discord sends the thread id as id in this object
       const thread = client.channels.cache.get(rawMember.id);
       if (thread) {

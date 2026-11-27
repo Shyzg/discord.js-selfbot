@@ -17,27 +17,41 @@ class PresenceUpdateAction extends Action {
     }
 
     const guild = this.client.guilds.cache.get(data.guild_id);
-    if (!guild) return;
+    // No guild_id: the overall presence of a friend, implicit relationship or DM recipient (user accounts only).
+    const presences = guild?.presences ?? (data.guild_id ? null : this.client.presences);
+    if (!presences) return;
 
-    const oldPresence = guild.presences.cache.get(user.id)?._clone() ?? null;
-    let member = guild.members.cache.get(user.id);
-    if (!member && data.status !== 'offline') {
-      member = guild.members._add({
+    const oldPresence = presences.cache.get(user.id)?._clone() ?? null;
+    if (guild && !guild.members.cache.has(user.id) && data.status !== 'offline') {
+      const member = guild.members._add({
         user,
         deaf: false,
         mute: false,
       });
       this.client.emit(Events.GuildMemberAvailable, member);
     }
-    const newPresence = guild.presences._add(Object.assign(data, { guild }));
-    if (this.client.listenerCount(Events.PresenceUpdate) && !newPresence.equals(oldPresence)) {
+    const newPresence = presences._add(Object.assign(data, { guild: guild ?? null }));
+    // Guildless presences get their own event, so presenceUpdate handlers ported from bots can keep using
+    // `newPresence.guild` without a null check.
+    const event = guild ? Events.PresenceUpdate : Events.UserPresenceUpdate;
+    if (this.client.listenerCount(event) && !newPresence.equals(oldPresence)) {
       /**
        * Emitted whenever a guild member's presence (e.g. status, activity) is changed.
        * @event Client#presenceUpdate
        * @param {?Presence} oldPresence The presence before the update, if one at all
        * @param {Presence} newPresence The presence after the update
        */
-      this.client.emit(Events.PresenceUpdate, oldPresence, newPresence);
+
+      /**
+       * Emitted whenever the overall presence of a friend, implicit relationship or DM recipient changes (user
+       * accounts only). These presences belong to no guild: {@link Presence#guild} is `null` and they are cached in
+       * {@link Client#presences}. A friend in shared guilds also produces one {@link Client#event:presenceUpdate}
+       * per guild.
+       * @event Client#userPresenceUpdate
+       * @param {?Presence} oldPresence The presence before the update, if one at all
+       * @param {Presence} newPresence The presence after the update
+       */
+      this.client.emit(event, oldPresence, newPresence);
     }
   }
 }

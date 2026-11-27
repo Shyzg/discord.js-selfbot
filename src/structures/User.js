@@ -458,6 +458,33 @@ class User extends Base {
   }
 
   /**
+   * The private note the client user keeps about this user, if it is cached (see {@link User#fetchNote})
+   * @type {?string}
+   * @readonly
+   */
+  get note() {
+    return this.client.users.notes.get(this.id) ?? null;
+  }
+
+  /**
+   * Fetches the private note the client user keeps about this user (user accounts only).
+   * @param {boolean} [force=false] Whether to skip the note cache and request the API
+   * @returns {Promise<?string>}
+   */
+  fetchNote(force = false) {
+    return this.client.users.fetchNote(this.id, { force });
+  }
+
+  /**
+   * Sets or clears the private note the client user keeps about this user (user accounts only).
+   * @param {?string} note The note (up to 256 characters); `null` or an empty string clears it
+   * @returns {Promise<?string>}
+   */
+  setNote(note) {
+    return this.client.users.setNote(this.id, note);
+  }
+
+  /**
    * When concatenated with a string, this automatically returns the user's mention instead of the User object.
    * @returns {string}
    * @example

@@ -1,5 +1,6 @@
 'use strict';
 
+const { Collection } = require('@discordjs/collection');
 const { ChannelType, Routes } = require('discord-api-types/v10');
 const CachedManager = require('./CachedManager');
 const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
@@ -7,6 +8,7 @@ const { GuildMember } = require('../structures/GuildMember');
 const { Message } = require('../structures/Message');
 const ThreadMember = require('../structures/ThreadMember');
 const User = require('../structures/User');
+const Events = require('../util/Events');
 const { emitDeprecationWarningForUserFetchFlags } = require('../util/Util');
 
 /**
@@ -16,6 +18,74 @@ const { emitDeprecationWarningForUserFetchFlags } = require('../util/Util');
 class UserManager extends CachedManager {
   constructor(client, iterable) {
     super(client, User, iterable);
+
+    /**
+     * The private notes the client user wrote about other users, keyed by user id. Filled by
+     * {@link UserManager#fetchNote}, {@link UserManager#setNote} and note changes made on other devices.
+     * @type {Collection<Snowflake, string>}
+     */
+    this.notes = new Collection();
+  }
+
+  /**
+   * Fetches the private note the client user wrote about a user (user accounts only).
+   * @param {UserResolvable} user The user
+   * @param {Object} [options] Options for this fetch
+   * @param {boolean} [options.force=false] Whether to skip the note cache and request the API
+   * @returns {Promise<?string>} The note, or `null` if there is none
+   */
+  async fetchNote(user, { force = false } = {}) {
+    const id = this.resolveId(user);
+    if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
+    if (!force && this.notes.has(id)) return this.notes.get(id);
+    let note;
+    try {
+      ({ note } = await this.client.rest.get(`/users/@me/notes/${id}`));
+    } catch (error) {
+      // Discord answers 404 when there is no note for this user.
+      if (error?.status !== 404) throw error;
+    }
+    if (note) this.notes.set(id, note);
+    else this.notes.delete(id);
+    return note || null;
+  }
+
+  /**
+   * Sets or clears the private note the client user keeps about a user (user accounts only).
+   * @param {UserResolvable} user The user
+   * @param {?string} note The note (up to 256 characters); `null` or an empty string clears it
+   * @returns {Promise<?string>} The new note
+   */
+  async setNote(user, note) {
+    const id = this.resolveId(user);
+    if (!id) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'user', 'UserResolvable');
+    await this.client.rest.put(`/users/@me/notes/${id}`, { body: { note: note || null } });
+    return this._patchNote(id, note);
+  }
+
+  /**
+   * Stores a note change and emits {@link Client#event:userNoteUpdate} if the note actually changed.
+   * @param {Snowflake} id The id of the user the note is about
+   * @param {?string} note The new note
+   * @returns {?string}
+   * @private
+   */
+  _patchNote(id, note) {
+    const oldNote = this.notes.get(id) ?? null;
+    const newNote = note || null;
+    if (newNote) this.notes.set(id, newNote);
+    else this.notes.delete(id);
+    if (oldNote !== newNote) {
+      /**
+       * Emitted when a private note the client user keeps about a user changes, from this client or another device.
+       * @event Client#userNoteUpdate
+       * @param {User} user The user the note is about (partial if uncached)
+       * @param {?string} oldNote The note before the change
+       * @param {?string} newNote The note after the change
+       */
+      this.client.emit(Events.UserNoteUpdate, this.cache.get(id) ?? this._add({ id }, false), oldNote, newNote);
+    }
+    return newNote;
   }
 
   /**

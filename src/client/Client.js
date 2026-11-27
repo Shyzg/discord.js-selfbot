@@ -1,6 +1,7 @@
 'use strict';
 
 const process = require('node:process');
+const { setTimeout, clearTimeout } = require('node:timers');
 const { Collection } = require('@discordjs/collection');
 const { makeURLSearchParams } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
@@ -12,6 +13,8 @@ const { DiscordjsError, DiscordjsTypeError, ErrorCodes } = require('../errors');
 const BaseGuildEmojiManager = require('../managers/BaseGuildEmojiManager');
 const ChannelManager = require('../managers/ChannelManager');
 const GuildManager = require('../managers/GuildManager');
+const PresenceManager = require('../managers/PresenceManager');
+const RelationshipManager = require('../managers/RelationshipManager');
 const UserManager = require('../managers/UserManager');
 const ClientPresence = require('../structures/ClientPresence');
 const GuildPreview = require('../structures/GuildPreview');
@@ -83,6 +86,19 @@ class Client extends BaseClient {
      * @type {ChannelManager}
      */
     this.channels = new ChannelManager(this);
+
+    /**
+     * The client user's friends, blocked users and pending friend requests
+     * @type {RelationshipManager}
+     */
+    this.relationships = new RelationshipManager(this);
+
+    /**
+     * Presences that belong to no guild: the overall presence of friends, implicit relationships and DM recipients.
+     * Their {@link Presence#guild} is `null`; per-guild presences stay in {@link Guild#presences}.
+     * @type {PresenceManager}
+     */
+    this.presences = new PresenceManager(this);
 
     /**
      * The sweeping functions and their intervals used to periodically sweep caches
@@ -248,18 +264,31 @@ class Client extends BaseClient {
    * @returns {Promise<Object>} The login response
    * @private
    */
-  async _passwordLogin(body, captcha) {
+  _passwordLogin(body, captcha) {
+    return this._captchaRequest('post', '/auth/login', { body, auth: false }, captcha);
+  }
+
+  /**
+   * Sends a REST request, retrying it once through the captcha handler when Discord answers with a captcha challenge.
+   * @param {string} method The REST method name (`post`, `put`, ...)
+   * @param {string} route The route to request
+   * @param {Object} options The request options for @discordjs/rest
+   * @param {?Function} captcha `async challenge => captchaKey`
+   * @returns {Promise<*>} The response
+   * @private
+   */
+  async _captchaRequest(method, route, options, captcha) {
     try {
-      return await this.rest.post('/auth/login', { body, auth: false });
+      return await this.rest[method](route, options);
     } catch (error) {
       const challenge = error?.rawError;
       if (!challenge?.captcha_service) throw error;
       if (!captcha) throw new DiscordjsError(ErrorCodes.CaptchaRequired, challenge.captcha_service);
       // shortcut: a single captcha retry; a second challenge rethrows. Upgrade if Discord chains captchas.
-      const headers = { 'x-captcha-key': await captcha(challenge) };
+      const headers = { ...options.headers, 'x-captcha-key': await captcha(challenge) };
       if (challenge.captcha_rqtoken) headers['x-captcha-rqtoken'] = challenge.captcha_rqtoken;
       if (challenge.captcha_session_id) headers['x-captcha-session-id'] = challenge.captcha_session_id;
-      return this.rest.post('/auth/login', { body, auth: false, headers });
+      return this.rest[method](route, { ...options, headers });
     }
   }
 
@@ -384,14 +413,25 @@ class Client extends BaseClient {
     this.voice.destroy();
     await this.ws.destroy();
     this.token = null;
+    this._clearAccountState();
+    this.rest.setToken(null);
+    this._destroyed = true;
+  }
+
+  /**
+   * Forgets everything cached for the logged-in account, so a later login (possibly as another account) starts clean.
+   * @private
+   */
+  _clearAccountState() {
     this.readyTimestamp = null;
     this.user = null;
     this.application = null;
     this.guilds.cache.clear();
     this.channels.cache.clear();
     this.users.cache.clear();
-    this.rest.setToken(null);
-    this._destroyed = true;
+    this.users.notes.clear();
+    this.relationships.cache.clear();
+    this.presences.cache.clear();
   }
 
   /**
@@ -420,6 +460,58 @@ class Client extends BaseClient {
     });
     const data = await this.rest.get(Routes.invite(code), { query });
     return new Invite(this, data);
+  }
+
+  /**
+   * Joins a guild or group DM through an invite (user accounts only).
+   * <warn>Discord may flag suspicious join activity and answer with a captcha challenge; pass a `captcha` handler to
+   * retry once with the solved key.</warn>
+   * @param {InviteResolvable} invite Invite code or URL
+   * @param {CaptchaRequestOptions} [options] Options for the request
+   * @returns {Promise<Guild|PartialGroupDMChannel|Invite>} The joined guild or group DM once Discord delivers it (within
+   * 10 seconds), otherwise the accepted invite
+   * @example
+   * const guild = await client.acceptInvite('https://discord.gg/djs');
+   */
+  async acceptInvite(invite, { captcha } = {}) {
+    const code = resolveInviteCode(invite);
+    if (!code) throw new DiscordjsTypeError(ErrorCodes.InvalidType, 'invite', 'InviteResolvable');
+    const sessionId = this.ws.shards.first()?.sessionInfo?.sessionId;
+    const body = sessionId ? { session_id: sessionId } : {};
+    const data = await this._captchaRequest('post', Routes.invite(code), { body }, captcha);
+    const guildId = data.guild?.id ?? data.guild_id;
+    const joined = guildId
+      ? await this._waitForCreate(Events.GuildCreate, guildId, this.guilds)
+      : data.channel?.id && (await this._waitForCreate(Events.ChannelCreate, data.channel.id, this.channels));
+    // The invite's guild data is partial (no channels), so it is never cached as the guild itself.
+    return joined || new Invite(this, data);
+  }
+
+  /**
+   * Resolves the cached entity with this id, waiting up to 10 seconds for its create event if it is not cached yet.
+   * @param {string} event The create event to wait for
+   * @param {Snowflake} id The id of the entity
+   * @param {CachedManager} manager The manager that caches it
+   * @returns {Promise<?*>} The entity, or `null` if it did not arrive in time
+   * @private
+   */
+  _waitForCreate(event, id, manager) {
+    const cached = manager.cache.get(id);
+    if (cached) return Promise.resolve(cached);
+    return new Promise(resolve => {
+      const done = entity => {
+        clearTimeout(timeout);
+        this.off(event, listener);
+        this.decrementMaxListeners();
+        resolve(entity);
+      };
+      const listener = entity => {
+        if (entity.id === id) done(entity);
+      };
+      const timeout = setTimeout(() => done(null), 10_000).unref();
+      this.incrementMaxListeners();
+      this.on(event, listener);
+    });
   }
 
   /**

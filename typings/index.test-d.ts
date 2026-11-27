@@ -71,6 +71,7 @@ import {
   ChatInputApplicationCommandData,
   Client,
   ClientApplication,
+  ClientSession,
   ClientUser,
   CloseEvent,
   Collection,
@@ -149,7 +150,13 @@ import {
   PollAnswer,
   PollAnswerVoterManager,
   PollData,
+  Presence,
+  PresenceManager,
+  PresenceStatus,
   ReactionCollector,
+  Relationship,
+  RelationshipManager,
+  RelationshipType,
   Role,
   RoleManager,
   RoleSelectMenuBuilder,
@@ -1663,4 +1670,56 @@ declare const scheduledEventManager: GuildScheduledEventManager;
   expectType<Promise<Collection<Snowflake, GuildScheduledEventUser<false>>>>(
     scheduledEventManager.fetchSubscribers('123456789012345678', { before: '1', after: '2', limit: 10 }),
   );
+}
+
+// User-account features: relationships, friend presences, invites, subscriptions, notes, read state, sessions
+{
+  expectType<RelationshipManager>(client.relationships);
+  expectType<PresenceManager>(client.presences);
+  expectType<Collection<Snowflake, Relationship>>(client.relationships.friends);
+  expectType<Collection<Snowflake, Relationship>>(client.relationships.incoming);
+  expectType<Promise<Collection<Snowflake, Relationship>>>(client.relationships.fetch());
+  expectType<Promise<void>>(client.relationships.sendFriendRequest('someone', { captcha: async () => 'key' }));
+  expectType<Promise<void>>(client.relationships.addFriend(user));
+  expectType<Promise<void>>(client.relationships.block(user));
+  expectType<Promise<void>>(client.relationships.remove('123456789012345678'));
+  expectType<Promise<void>>(client.relationships.setNickname(user, 'nick'));
+  const relationship = client.relationships.cache.get('123456789012345678');
+  if (relationship) {
+    expectType<RelationshipType>(relationship.type);
+    expectType<string | null>(relationship.nickname);
+    expectType<User | null>(relationship.user);
+  }
+
+  expectType<Promise<Guild | PartialGroupDMChannel | Invite>>(client.acceptInvite('code'));
+  expectType<Promise<void>>(client.guilds.subscribe(client.guilds.cache));
+  expectType<Promise<void>>(guild.subscribe({ threads: false }));
+
+  expectType<Promise<string | null>>(client.users.fetchNote(user, { force: true }));
+  expectType<Promise<string | null>>(user.setNote('note'));
+  expectType<string | null>(user.note);
+
+  expectType<Promise<TextChannel>>(textChannel.markRead());
+  expectType<Promise<Message>>(message.markRead());
+
+  expectType<Collection<string, ClientSession>>(clientUser.sessions);
+  expectType<PresenceStatus | null>(clientUser.status);
+
+  client.on('relationshipAdd', (added, shouldNotify) => {
+    expectType<Relationship>(added);
+    expectType<boolean>(shouldNotify);
+  });
+  client.on('sessionsUpdate', (oldSessions, newSessions) => {
+    expectType<Collection<string, ClientSession>>(oldSessions);
+    expectType<Collection<string, ClientSession>>(newSessions);
+  });
+  client.on('userNoteUpdate', (noteUser, oldNote, newNote) => {
+    expectType<User>(noteUser);
+    expectType<string | null>(oldNote);
+    expectType<string | null>(newNote);
+  });
+  client.on('userPresenceUpdate', (oldPresence, newPresence) => {
+    expectType<Presence | null>(oldPresence);
+    expectType<Presence>(newPresence);
+  });
 }
