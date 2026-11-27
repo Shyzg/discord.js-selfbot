@@ -104,6 +104,41 @@ test('Group DM channels can send, fetch, delete, patch updates, and cleanContent
   await client.destroy();
 });
 
+test('CHANNEL_RECIPIENT_ADD/REMOVE keep a group DM recipient list current', async () => {
+  const client = new Client();
+  const gdm = client.channels._add({
+    id: '500',
+    type: ChannelType.GroupDM,
+    recipients: [{ id: '2', username: 'bob' }],
+  });
+  const dm = client.channels._add({ id: '501', type: ChannelType.DM, recipients: [{ id: '2', username: 'bob' }] });
+
+  handlers.CHANNEL_RECIPIENT_ADD(client, { d: { channel_id: '500', user: { id: '3', username: 'carol' } } });
+  assert.deepEqual(
+    gdm.recipients.map(recipient => recipient.id),
+    ['2', '3'],
+  );
+  assert.equal(client.users.cache.get('3')?.username, 'carol');
+
+  // A repeated add does not duplicate; payloads without a user, for a 1:1 DM, or for an uncached channel are ignored.
+  handlers.CHANNEL_RECIPIENT_ADD(client, { d: { channel_id: '500', user: { id: '3', username: 'carol' } } });
+  handlers.CHANNEL_RECIPIENT_ADD(client, { d: { channel_id: '500' } });
+  handlers.CHANNEL_RECIPIENT_ADD(client, { d: { channel_id: '501', user: { id: '4', username: 'dan' } } });
+  handlers.CHANNEL_RECIPIENT_REMOVE(client, { d: { channel_id: '999', user: { id: '2' } } });
+  assert.deepEqual(
+    gdm.recipients.map(recipient => recipient.id),
+    ['2', '3'],
+  );
+  assert.equal(dm.recipients, undefined);
+
+  handlers.CHANNEL_RECIPIENT_REMOVE(client, { d: { channel_id: '500', user: { id: '2', username: 'bob' } } });
+  assert.deepEqual(
+    gdm.recipients.map(recipient => recipient.id),
+    ['3'],
+  );
+  await client.destroy();
+});
+
 test('channel classes no longer expose dead no-op component collector stubs', () => {
   for (const Cls of [DMChannel, BaseGuildTextChannel, BaseGuildVoiceChannel, ThreadChannel]) {
     assert.equal('createMessageComponentCollector' in Cls.prototype, false);
@@ -182,6 +217,20 @@ test('bot-only thread/member REST endpoints are removed', () => {
   assert.equal('fetchActive' in ThreadManager.prototype, false);
   assert.equal('list' in GuildMemberManager.prototype, false);
   assert.equal('search' in GuildMemberManager.prototype, false);
+});
+
+test('ThreadManager#fetch() without a thread or archived option rejects instead of throwing synchronously', async () => {
+  const client = new Client();
+  client.guilds._add({
+    id: '1',
+    name: 'G',
+    channels: [{ id: '2', type: ChannelType.GuildText, name: 't', guild_id: '1' }],
+  });
+  // Ported discord.js code calls fetch() with no argument (it used to return active threads) and handles errors in .catch.
+  const pending = client.channels.cache.get('2').threads.fetch();
+  assert.ok(pending instanceof Promise);
+  await assert.rejects(pending, { code: DiscordjsErrorCodes.InvalidType });
+  await client.destroy();
 });
 
 test('MessageManager#fetch(id) queries ?around=:id&limit=1 and rejects missing targets with MessageNotFound', async () => {

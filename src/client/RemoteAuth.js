@@ -4,7 +4,7 @@ const { createHash, generateKeyPairSync, privateDecrypt, constants } = require('
 const { Buffer } = require('node:buffer');
 const { setInterval, clearInterval, setTimeout, clearTimeout } = require('node:timers');
 const { DiscordjsError, ErrorCodes } = require('../errors');
-const { USER_AGENT } = require('../util/UserProperties');
+const { USER_AGENT, stripRequestBody } = require('../util/UserProperties');
 
 const REMOTE_AUTH_GATEWAY = 'wss://remote-auth-gateway.discord.gg/?v=2';
 
@@ -126,10 +126,7 @@ class RemoteAuth {
             body: { ticket: message.ticket },
             auth: false,
           })
-          .catch(error => {
-            if (error?.requestBody) delete error.requestBody;
-            throw error;
-          });
+          .catch(stripRequestBody);
         this.destroy();
         resolve(this._decrypt(encryptedToken).toString());
         break;

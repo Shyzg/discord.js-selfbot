@@ -78,6 +78,19 @@ function fixUserRequestHeaders(headers) {
   return headers;
 }
 
+/**
+ * Rethrows a REST error without its `requestBody`. @discordjs/rest errors keep the body they sent, which for login
+ * and account requests holds the password, MFA code or login ticket, so logging such an error would print it.
+ * Use it as the `.catch` of every request whose body carries a secret.
+ * @param {*} error The rejected request's error
+ * @returns {never}
+ * @private
+ */
+function stripRequestBody(error) {
+  if (error?.requestBody) delete error.requestBody;
+  throw error;
+}
+
 // The web client's gateway IDENTIFY `capabilities` (1767421), which selects the modern (user) event format, minus
 // four bits whose behavior this library can't apply correctly. Keep them cleared when refreshing the web value:
 // - AUTH_TOKEN_REFRESH (1 << 8): @discordjs/ws can't switch tokens, so later resumes would send the discarded one.
@@ -105,6 +118,7 @@ module.exports = {
   USER_AGENT,
   createUserProperties,
   fixUserRequestHeaders,
+  stripRequestBody,
   CAPABILITIES,
   applyUserIdentify,
 };

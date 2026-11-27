@@ -5754,7 +5754,7 @@ export interface PartialUser extends Partialize<User, 'username' | 'tag' | 'disc
 
 export type PresenceStatusData = ClientPresenceStatus | 'invisible';
 
-export type PresenceStatus = PresenceStatusData | 'offline';
+export type PresenceStatus = PresenceStatusData | 'offline' | 'unknown';
 
 export interface ReactionCollectorOptions extends CollectorOptions<[MessageReaction, User]> {
   max?: number;
