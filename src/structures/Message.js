@@ -23,6 +23,7 @@ const { DiscordjsError, ErrorCodes } = require('../errors');
 const ReactionManager = require('../managers/ReactionManager');
 const { createComponent, findComponentByCustomId } = require('../util/Components');
 const { NonSystemMessageTypes, UndeletableMessageTypes } = require('../util/Constants');
+const Interactions = require('../util/Interactions');
 const MessageFlagsBitField = require('../util/MessageFlagsBitField');
 const PermissionsBitField = require('../util/PermissionsBitField');
 const { _transformAPIMessageInteractionMetadata } = require('../util/Transformers.js');
@@ -1017,6 +1018,31 @@ class Message extends Base {
    */
   resolveComponent(customId) {
     return findComponentByCustomId(this.components, customId);
+  }
+
+  /**
+   * Clicks a button on this message, the way the official client does (user accounts only).
+   * @param {string|ButtonComponent} button The button, or its custom id
+   * @returns {Promise<?(Message|Modal)>} The application's answer: its reply, this message after the application
+   * edited it, the modal it opened, or `null` if it answered with none of them in time
+   * @example
+   * const answer = await message.clickButton('confirm');
+   */
+  clickButton(button) {
+    return Interactions.clickButton(this, button);
+  }
+
+  /**
+   * Chooses values in a select menu on this message, the way the official client does (user accounts only).
+   * @param {string|BaseSelectMenuComponent} menu The select menu, or its custom id
+   * @param {Array<string|{ id: Snowflake }>} values The option values of a string select menu, or the users, roles
+   * or channels (or their ids) for the other menus
+   * @returns {Promise<?(Message|Modal)>} The application's answer, as for {@link Message#clickButton}
+   * @example
+   * await message.selectMenu('color', ['red']);
+   */
+  selectMenu(menu, values) {
+    return Interactions.selectMenu(this, menu, values);
   }
 
   /**

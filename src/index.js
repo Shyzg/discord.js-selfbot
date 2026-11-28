@@ -156,6 +156,7 @@ exports.MediaChannel = require('./structures/MediaChannel');
 exports.MediaGalleryComponent = require('./structures/MediaGalleryComponent');
 exports.MediaGalleryItem = require('./structures/MediaGalleryItem');
 exports.MessageCollector = require('./structures/MessageCollector');
+exports.Modal = require('./structures/Modal');
 exports.MessageMentions = require('./structures/MessageMentions');
 exports.MessagePayload = require('./structures/MessagePayload');
 exports.MessageReaction = require('./structures/MessageReaction');

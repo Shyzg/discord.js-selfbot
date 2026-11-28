@@ -1,6 +1,7 @@
 'use strict';
 
 const { Routes } = require('discord-api-types/v10');
+const Interactions = require('../../util/Interactions');
 const MessageCollector = require('../MessageCollector');
 const MessagePayload = require('../MessagePayload');
 
@@ -217,6 +218,30 @@ class TextBasedChannel {
   }
 
   /**
+   * Runs another application's slash command in this channel, the way the official client does (user accounts
+   * only).
+   * <info>Give the options in the command's order, or as one object keyed by option name; a choice can be given by
+   * its name or its value. Subcommands go in the command name, like `'settings set'`. Attachment options are not
+   * supported.</info>
+   * @param {UserResolvable} bot The bot, or its application id
+   * @param {string} command The command name, with its subcommand group and subcommand if any
+   * @param {...*} [options] The option values
+   * @returns {Promise<?(Message|Modal)>} The application's reply, the modal it opened, or `null` if it answered with
+   * neither in time. A deferred reply ("is thinking...") is returned once the application fills it in, or as the
+   * placeholder itself after a minute.
+   * @example
+   * // Run a bot's /help and read the reply
+   * const reply = await channel.sendSlash(botId, 'help');
+   * console.log(reply?.content);
+   * @example
+   * // Options by name, with a subcommand
+   * await channel.sendSlash(botId, 'settings set', { key: 'prefix', value: '!' });
+   */
+  sendSlash(bot, command, ...options) {
+    return Interactions.sendSlash(this, bot, command, options);
+  }
+
+  /**
    * Creates a Message Collector.
    * @param {MessageCollectorOptions} [options={}] The options to pass to the collector
    * @returns {MessageCollector}
@@ -330,6 +355,7 @@ class TextBasedChannel {
         'lastPinAt',
         'sendTyping',
         'markRead',
+        'sendSlash',
         'createMessageCollector',
         'awaitMessages',
         'fetchWebhooks',

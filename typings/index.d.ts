@@ -70,6 +70,7 @@ import {
   APIMessageSharedClientTheme,
   APIMessageTopLevelComponent,
   APIModalComponent,
+  APIModalInteractionResponseCallbackComponent,
   APIOverwrite,
   APIPartialChannel,
   APIPartialEmoji,
@@ -1857,6 +1858,11 @@ export class Message<InGuild extends boolean = boolean> extends Base {
   public reply(options: string | MessagePayload | MessageReplyOptions): Promise<Message<InGuild>>;
   public forward(channel: TextBasedChannelResolvable): Promise<Message>;
   public resolveComponent(customId: string): MessageActionRowComponent | null;
+  public clickButton(button: string | ButtonComponent): Promise<Message | Modal | null>;
+  public selectMenu(
+    menu: string | BaseSelectMenuComponent<APISelectMenuComponent>,
+    values: readonly (string | { id: Snowflake })[],
+  ): Promise<Message | Modal | null>;
   public startThread(options: StartThreadOptions): Promise<PublicThreadChannel<false>>;
   public suppressEmbeds(suppress?: boolean): Promise<Message<InGuild>>;
   public toJSON(): unknown;
@@ -2105,6 +2111,7 @@ export interface ThreadOnlyChannel
     | 'lastPinAt'
     | 'sendTyping'
     | 'markRead'
+    | 'sendSlash'
     | 'createMessageCollector'
     | 'awaitMessages'
     | 'messages'
@@ -3176,6 +3183,14 @@ export enum DiscordjsErrorCodes {
   MessageNonceRequired = 'MessageNonceRequired',
   MessageNonceType = 'MessageNonceType',
 
+  InteractionApplicationNotFound = 'InteractionApplicationNotFound',
+  InteractionCommandNotFound = 'InteractionCommandNotFound',
+  InteractionCommandOption = 'InteractionCommandOption',
+  InteractionComponentNotFound = 'InteractionComponentNotFound',
+  InteractionSelectValues = 'InteractionSelectValues',
+  InteractionFailed = 'InteractionFailed',
+  InteractionTimeout = 'InteractionTimeout',
+
   BanResolveId = 'BanResolveId',
   FetchBanResolveId = 'FetchBanResolveId',
 
@@ -3727,6 +3742,18 @@ export interface ClientUserSettingsEditOptions {
   customStatus?: CustomStatusData | null;
 }
 
+export class Modal extends Base {
+  private constructor(client: Client<true>, data: unknown);
+  public id: Snowflake;
+  public customId: string;
+  public title: string;
+  public channelId: Snowflake;
+  public applicationId: Snowflake | null;
+  public components: APIModalInteractionResponseCallbackComponent[];
+  public get channel(): TextBasedChannel | null;
+  public submit(values?: Readonly<Record<string, string | readonly string[]>>): Promise<Message | Modal | null>;
+}
+
 export class Call extends Base {
   private constructor(client: Client<true>, data: unknown);
   public channelId: Snowflake;
@@ -3888,6 +3915,7 @@ export interface TextBasedChannelFields<InGuild extends boolean = boolean, InDM 
   fetchWebhooks(): Promise<Collection<Snowflake, Webhook<WebhookType.ChannelFollower | WebhookType.Incoming>>>;
   sendTyping(): Promise<void>;
   markRead(): Promise<this>;
+  sendSlash(bot: UserResolvable, command: string, ...options: unknown[]): Promise<Message | Modal | null>;
   setRateLimitPerUser(rateLimitPerUser: number, reason?: string): Promise<this>;
   setNSFW(nsfw?: boolean, reason?: string): Promise<this>;
 }
