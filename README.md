@@ -143,7 +143,7 @@ client.on(Events.UserSettingsUpdate, (oldSettings, newSettings) => {
 
 ### DM and group DM calls
 
-`client.calls` tracks the calls in your DMs and group DMs: who is in them and who is being rung. `ring()`, `stopRinging()` and `setRegion()` only work while a call is active. Joining a call's voice is not supported (Discord requires end-to-end encrypted voice there).
+`client.calls` tracks the calls in your DMs and group DMs: who is in them and who is being rung. `ring()`, `stopRinging()` and `setRegion()` only work while a call is active. Joining a call's voice is not supported: there is no voice adapter for DMs. Voice channels in guilds do work (see below).
 
 ```js
 client.on(Events.CallCreate, call => console.log(`call in ${call.channelId}, ringing ${call.ringing.length}`));
@@ -156,6 +156,28 @@ client.on(Events.CallVoiceStateUpdate, (oldState, newState, call) => {
 await dmChannel.call?.ring(); // ring everyone again
 await dmChannel.call?.stopRinging(); // decline an incoming call
 ```
+
+### Voice channels
+
+Voice in guild voice channels goes through [`@discordjs/voice`](https://www.npmjs.com/package/@discordjs/voice) with `guild.voiceAdapterCreator`, as in discord.js.
+
+Discord only accepts end-to-end encrypted voice (DAVE), and closes any other voice connection with code 4017. Use `@discordjs/voice` 0.19.1 or newer, which installs the DAVE library `@snazzah/davey` for you:
+
+- **0.19.0:** works only after you install `@snazzah/davey` yourself.
+- **Earlier versions:** cannot connect.
+
+```js
+import { entersState, joinVoiceChannel, VoiceConnectionStatus } from '@discordjs/voice';
+
+const connection = joinVoiceChannel({
+  channelId: channel.id,
+  guildId: channel.guild.id,
+  adapterCreator: channel.guild.voiceAdapterCreator,
+});
+await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+```
+
+Running several accounts in one process? Give each account its own `group` in `joinVoiceChannel`. Otherwise it returns the connection of the account that joined that guild first.
 
 ### Other bots' slash commands, buttons and select menus
 
@@ -201,7 +223,7 @@ const client = new Client({
 - **Presences without a guild:** the overall presence of friends and DM recipients arrives as `userPresenceUpdate` (with `newPresence.guild === null`) and is cached in `client.presences`; `presenceUpdate` stays guild-only, so handlers ported from bots keep working. A friend in shared guilds also produces one `presenceUpdate` per guild.
 - **Call voice states:** voice states in DM and group DM calls have no guild, so they arrive as `callVoiceStateUpdate` and live in `call.voiceStates`; `voiceStateUpdate` stays guild-only.
 - **Group DMs:** `PartialGroupDMChannel` supports `send`, `sendTyping`, `fetch`, `delete`, `createMessageCollector`, and `awaitMessages`.
-- **Bot-only APIs removed:** Sharding (`ShardingManager`), interactions/modals/component collectors, application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `bulkDelete`/`bulkDeletable`, `fetchActiveThreads`/`fetchActive`, `ThreadMemberManager#fetch`/`fetchMe`, `ThreadChannel#fetchOwner`, `VoiceStateManager#fetch`/`VoiceState#fetch`, and `members.list`/`members.search`.
+- **Bot-only APIs removed:** Sharding (`ShardingManager`), receiving interactions with their modals and component collectors (sending interactions to other bots as the user is supported, see above), application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `bulkDelete`/`bulkDeletable`, `fetchActiveThreads`/`fetchActive`, `ThreadMemberManager#fetch`/`fetchMe`, `ThreadChannel#fetchOwner`, `VoiceStateManager#fetch`/`VoiceState#fetch`, and `members.list`/`members.search`.
 
 ## Development
 
