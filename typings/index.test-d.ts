@@ -95,6 +95,7 @@ import {
   FileComponentData,
   FileUploadComponentData,
   ForumChannel,
+  GoLiveStream,
   Guild,
   GuildAuditLogs,
   GuildAuditLogsActionType,
@@ -175,6 +176,10 @@ import {
   StageInstance,
   Status,
   StickerPack,
+  StreamBroadcast,
+  StreamKeyData,
+  StreamManager,
+  StreamViewer,
   StringSelectMenuBuilder,
   StringSelectMenuComponent,
   StringSelectMenuComponentData,
@@ -202,6 +207,7 @@ import {
   type VoiceBasedChannel,
   VoiceChannel,
   VoiceServerUpdateData,
+  VoiceState,
   Webhook,
   WebhookClient,
   WebSocketShard,
@@ -1799,5 +1805,39 @@ declare const scheduledEventManager: GuildScheduledEventManager;
       expectType<Snowflake | null>(answer.applicationId);
       expectType<Promise<Message | Modal | null>>(answer.submit({ feedback: 'great', tags: ['a', 'b'] }));
     }
+  });
+}
+
+// User-account Go Live streams
+declare const voiceState: VoiceState;
+declare const h264: AsyncIterable<Buffer>;
+{
+  expectType<StreamManager>(client.streams);
+  expectType<Promise<StreamBroadcast>>(client.streams.goLive(voiceChannel, { width: 1280, height: 720, fps: 30 }));
+  expectType<Promise<StreamViewer>>(client.streams.watch('guild:1:2:3'));
+  expectType<Promise<string>>(client.streams.fetchPreview(voiceState));
+  expectType<string | null>(voiceState.streamKey);
+  expectType<StreamKeyData>(GoLiveStream.parseKey('guild:1:2:3'));
+  expectType<string>(GoLiveStream.formatKey({ type: 'call', channelId: '1', ownerId: '2' }));
+  // @ts-expect-error a stream needs a voice channel, not a text channel
+  client.streams.goLive(textChannel);
+
+  client.streams.goLive(voiceChannel).then(broadcast => {
+    expectType<Promise<void>>(broadcast.play(h264));
+    expectType<StreamBroadcast>(broadcast.setPaused(true));
+    expectType<StreamBroadcast>(broadcast.end());
+    broadcast.on('end', reason => expectType<string>(reason));
+  });
+  client.streams.watch(voiceState).then(viewer => {
+    viewer.on('frame', frame => {
+      expectType<Buffer>(frame.frame);
+      expectType<boolean>(frame.keyframe);
+    });
+    expectType<StreamViewer>(viewer.stop());
+    expectType<string | null>(viewer.voicePrivacyCode);
+  });
+  client.on('streamDelete', (stream, reason) => {
+    expectType<GoLiveStream>(stream);
+    expectType<string | null>(reason);
   });
 }

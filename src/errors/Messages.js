@@ -48,6 +48,23 @@ const Messages = {
   [DjsErrorCodes.InteractionFailed]: reasonCode => `The interaction failed (reason code ${reasonCode}).`,
   [DjsErrorCodes.InteractionTimeout]: 'The application did not respond to the interaction in time.',
 
+  [DjsErrorCodes.StreamKeyInvalid]: key => `"${key}" is not a valid stream key.`,
+  [DjsErrorCodes.StreamNotInVoiceChannel]:
+    'Connect to the voice channel first (for example with @discordjs/voice): going live and watching need a voice connection in it.',
+  [DjsErrorCodes.StreamMissingPermission]: 'Going live needs the Stream (Video) permission in this voice channel.',
+  [DjsErrorCodes.StreamTypeUnsupported]: type => `Only guild streams are supported, not ${type} streams.`,
+  [DjsErrorCodes.StreamWatchOwn]: 'You cannot watch your own stream.',
+  [DjsErrorCodes.StreamDaveMissing]:
+    'Go Live media needs the @snazzah/davey package (DAVE end-to-end encryption); install it next to this one.',
+  [DjsErrorCodes.StreamAlreadyOpen]: 'This stream is already open, or opening, in this client.',
+  [DjsErrorCodes.StreamRefused]: reason => `Discord did not open the stream (${reason}).`,
+  [DjsErrorCodes.StreamTimeout]: 'Discord did not open the stream in time.',
+  [DjsErrorCodes.StreamConnectionFailed]: reason => `The stream's media connection closed (${reason}).`,
+  [DjsErrorCodes.StreamCodecUnsupported]: codec =>
+    `The stream server asked for ${codec} video, but only H264 is supported.`,
+  [DjsErrorCodes.StreamAlreadyPlaying]: 'This broadcast is already playing an input.',
+  [DjsErrorCodes.StreamEnded]: 'This stream session has ended.',
+
   [DjsErrorCodes.BanResolveId]: (ban = false) => `Couldn't resolve the user id to ${ban ? 'ban' : 'unban'}.`,
   [DjsErrorCodes.FetchBanResolveId]: "Couldn't resolve the user id to fetch the ban.",
 

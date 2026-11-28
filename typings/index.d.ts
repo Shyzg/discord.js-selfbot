@@ -885,6 +885,7 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
 
   public application: If<Ready, ClientApplication | null, null>;
   public calls: Collection<Snowflake, Call>;
+  public streams: StreamManager;
   public channels: ChannelManager;
   public get emojis(): BaseGuildEmojiManager;
   public guilds: GuildManager;
@@ -2896,6 +2897,7 @@ export class VoiceRegion {
 }
 
 export class VoiceState extends Base {
+  public get streamKey(): string | null;
   private constructor(guild: Guild, data: RawVoiceStateData);
   public get channel(): VoiceBasedChannel | null;
   public channelId: Snowflake | null;
@@ -3190,6 +3192,20 @@ export enum DiscordjsErrorCodes {
   InteractionSelectValues = 'InteractionSelectValues',
   InteractionFailed = 'InteractionFailed',
   InteractionTimeout = 'InteractionTimeout',
+
+  StreamKeyInvalid = 'StreamKeyInvalid',
+  StreamNotInVoiceChannel = 'StreamNotInVoiceChannel',
+  StreamMissingPermission = 'StreamMissingPermission',
+  StreamTypeUnsupported = 'StreamTypeUnsupported',
+  StreamWatchOwn = 'StreamWatchOwn',
+  StreamDaveMissing = 'StreamDaveMissing',
+  StreamAlreadyOpen = 'StreamAlreadyOpen',
+  StreamRefused = 'StreamRefused',
+  StreamTimeout = 'StreamTimeout',
+  StreamConnectionFailed = 'StreamConnectionFailed',
+  StreamCodecUnsupported = 'StreamCodecUnsupported',
+  StreamAlreadyPlaying = 'StreamAlreadyPlaying',
+  StreamEnded = 'StreamEnded',
 
   BanResolveId = 'BanResolveId',
   FetchBanResolveId = 'FetchBanResolveId',
@@ -3778,6 +3794,105 @@ export interface CallVoiceState {
   streaming: boolean;
   serverMute: boolean;
   serverDeaf: boolean;
+}
+
+export type StreamType = 'guild' | 'call' | 'test';
+
+export interface StreamKeyData {
+  type: StreamType;
+  guildId: Snowflake | null;
+  channelId: Snowflake | null;
+  ownerId: Snowflake;
+}
+
+export class GoLiveStream extends Base {
+  private constructor(client: Client<true>, data: unknown);
+  public key: string;
+  public type: StreamType | null;
+  public guildId: Snowflake | null;
+  public channelId: Snowflake | null;
+  public ownerId: Snowflake | null;
+  public rtcServerId: Snowflake | null;
+  public region: string | null;
+  public viewerIds: Snowflake[];
+  public paused: boolean;
+  public get guild(): Guild | null;
+  public get channel(): VoiceBasedChannel | DMChannel | PartialGroupDMChannel | null;
+  public get owner(): User | null;
+  public fetchPreview(): Promise<string>;
+  public static parseKey(key: string): StreamKeyData;
+  public static formatKey(data: Omit<StreamKeyData, 'guildId' | 'channelId'> & Partial<StreamKeyData>): string;
+}
+
+export interface GoLiveOptions {
+  width?: number;
+  height?: number;
+  fps?: number;
+  maxBitrate?: number;
+  preferredRegion?: string | null;
+}
+
+export interface StreamFrame {
+  userId: Snowflake;
+  frame: Buffer;
+  keyframe: boolean;
+  timestamp: number;
+}
+
+export interface StreamMediaStats {
+  framesSent?: number;
+  framesEncrypted?: number;
+  layoutFallbacks?: number;
+  packetsReceived?: number;
+  framesReceived?: number;
+  framesLost?: number;
+  framesUndecryptable?: number;
+  framesSkipped?: number;
+  framesHeld?: number;
+}
+
+export abstract class StreamSession extends EventEmitter {
+  protected constructor();
+  public manager: StreamManager;
+  public key: string;
+  public guild: Guild;
+  public ended: boolean;
+  public get stream(): GoLiveStream | null;
+  public get stats(): StreamMediaStats;
+  public get voicePrivacyCode(): string | null;
+  public on(event: 'end', listener: (reason: string) => void): this;
+  public on(event: string | symbol, listener: (...args: any[]) => void): this;
+  public once(event: 'end', listener: (reason: string) => void): this;
+  public once(event: string | symbol, listener: (...args: any[]) => void): this;
+}
+
+export class StreamBroadcast extends StreamSession {
+  public paused: boolean;
+  public playing: boolean;
+  public play(input: NodeJS.ReadableStream | AsyncIterable<Buffer | Uint8Array>): Promise<void>;
+  public setPaused(paused?: boolean): this;
+  public setPreview(image: BufferResolvable | Base64Resolvable): Promise<this>;
+  public end(): this;
+}
+
+export class StreamViewer extends StreamSession {
+  public stop(): this;
+  public on(event: 'frame', listener: (frame: StreamFrame) => void): this;
+  public on(event: 'end', listener: (reason: string) => void): this;
+  public on(event: string | symbol, listener: (...args: any[]) => void): this;
+  public once(event: 'frame', listener: (frame: StreamFrame) => void): this;
+  public once(event: 'end', listener: (reason: string) => void): this;
+  public once(event: string | symbol, listener: (...args: any[]) => void): this;
+}
+
+export type StreamResolvable = GoLiveStream | VoiceState | string;
+
+export class StreamManager extends BaseManager {
+  private constructor(client: Client<true>);
+  public cache: Collection<string, GoLiveStream>;
+  public goLive(channel: GuildVoiceChannelResolvable, options?: GoLiveOptions): Promise<StreamBroadcast>;
+  public watch(stream: StreamResolvable): Promise<StreamViewer>;
+  public fetchPreview(stream: StreamResolvable): Promise<string>;
 }
 
 export class ReactionManager extends CachedManager<Snowflake | string, MessageReaction, MessageReactionResolvable> {
@@ -4476,6 +4591,9 @@ export interface ClientEvents {
   callDelete: [call: Call];
   callUpdate: [oldCall: Call, newCall: Call];
   callVoiceStateUpdate: [oldState: CallVoiceState | null, newState: CallVoiceState, call: Call];
+  streamCreate: [stream: GoLiveStream];
+  streamDelete: [stream: GoLiveStream, reason: string | null];
+  streamUpdate: [oldStream: GoLiveStream, newStream: GoLiveStream];
   channelCreate: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
   channelDelete: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
   channelPinsUpdate: [channel: TextBasedChannel, date: Date | null];
@@ -4777,6 +4895,9 @@ export enum Events {
   Raw = 'raw',
   StageInstanceCreate = 'stageInstanceCreate',
   StageInstanceUpdate = 'stageInstanceUpdate',
+  StreamCreate = 'streamCreate',
+  StreamDelete = 'streamDelete',
+  StreamUpdate = 'streamUpdate',
   StageInstanceDelete = 'stageInstanceDelete',
   GuildStickerCreate = 'stickerCreate',
   GuildStickerDelete = 'stickerDelete',

@@ -43,6 +43,20 @@
  * @property {'InteractionFailed'} InteractionFailed
  * @property {'InteractionTimeout'} InteractionTimeout
 
+ * @property {'StreamKeyInvalid'} StreamKeyInvalid
+ * @property {'StreamNotInVoiceChannel'} StreamNotInVoiceChannel
+ * @property {'StreamMissingPermission'} StreamMissingPermission
+ * @property {'StreamTypeUnsupported'} StreamTypeUnsupported
+ * @property {'StreamWatchOwn'} StreamWatchOwn
+ * @property {'StreamDaveMissing'} StreamDaveMissing
+ * @property {'StreamAlreadyOpen'} StreamAlreadyOpen
+ * @property {'StreamRefused'} StreamRefused
+ * @property {'StreamTimeout'} StreamTimeout
+ * @property {'StreamConnectionFailed'} StreamConnectionFailed
+ * @property {'StreamCodecUnsupported'} StreamCodecUnsupported
+ * @property {'StreamAlreadyPlaying'} StreamAlreadyPlaying
+ * @property {'StreamEnded'} StreamEnded
+
  * @property {'BanResolveId'} BanResolveId
  * @property {'FetchBanResolveId'} FetchBanResolveId
 
@@ -141,6 +155,20 @@ const keys = [
   'InteractionSelectValues',
   'InteractionFailed',
   'InteractionTimeout',
+
+  'StreamKeyInvalid',
+  'StreamNotInVoiceChannel',
+  'StreamMissingPermission',
+  'StreamTypeUnsupported',
+  'StreamWatchOwn',
+  'StreamDaveMissing',
+  'StreamAlreadyOpen',
+  'StreamRefused',
+  'StreamTimeout',
+  'StreamConnectionFailed',
+  'StreamCodecUnsupported',
+  'StreamAlreadyPlaying',
+  'StreamEnded',
 
   'BanResolveId',
   'FetchBanResolveId',

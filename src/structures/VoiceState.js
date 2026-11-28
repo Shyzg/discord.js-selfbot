@@ -149,6 +149,17 @@ class VoiceState extends Base {
   }
 
   /**
+   * The key of the Go Live stream this member is running, if they are streaming (user accounts only). Pass it to
+   * {@link StreamManager#watch} or {@link StreamManager#fetchPreview}.
+   * @type {?string}
+   * @readonly
+   */
+  get streamKey() {
+    if (!this.streaming || !this.channelId) return null;
+    return `guild:${this.guild.id}:${this.channelId}:${this.id}`;
+  }
+
+  /**
    * Whether this member is either self-deafened or server-deafened
    * @type {?boolean}
    * @readonly

@@ -18,6 +18,7 @@
 - Synced account settings: status and custom status on every device
 - DM and group DM calls: who is in them, who is being rung, ringing and declining
 - Other bots' slash commands, buttons, select menus and modals
+- Go Live in guild voice channels: stream H264 video, and watch other members' streams
 
 ## Installation
 
@@ -178,6 +179,43 @@ await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
 ```
 
 Running several accounts in one process? Give each account its own `group` in `joinVoiceChannel`. Otherwise it returns the connection of the account that joined that guild first.
+
+### Go Live
+
+`client.streams` goes live in a guild voice channel, or watches someone else's stream there. Both need:
+
+- a voice connection in that channel first (see above);
+- the DAVE library `@snazzah/davey` installed next to this package (`npm install @snazzah/davey`), even if `@discordjs/voice` already brought it in.
+
+The broadcast takes an H264 Annex-B byte stream and sends it at the `fps` you give, for example from ffmpeg:
+
+```js
+import { spawn } from 'node:child_process';
+
+const broadcast = await client.streams.goLive(channel, { width: 1280, height: 720, fps: 30 });
+const encode = '-an -s 1280x720 -r 30 -c:v libx264 -preset veryfast -tune zerolatency -bf 0 -g 30 -pix_fmt yuv420p';
+const ffmpeg = spawn('ffmpeg', `-i video.mp4 ${encode} -bsf:v h264_mp4toannexb -f h264 -`.split(' '));
+await broadcast.play(ffmpeg.stdout);
+broadcast.end();
+```
+
+A viewer receives each frame end-to-end decrypted, as H264 Annex-B:
+
+```js
+const viewer = await client.streams.watch(member.voice); // a streaming member's voice state, or a stream key
+const ffplay = spawn('ffplay', ['-f', 'h264', '-i', '-']);
+viewer.on('frame', ({ frame }) => ffplay.stdin.write(frame));
+// later
+viewer.stop();
+```
+
+`voiceState.streaming` and `voiceState.streamKey` show who is live. `client.streams.fetchPreview(voiceState)` returns a stream's preview image, and `client.streams.cache` holds the streams this session created or watches.
+
+Limits:
+
+- Only guild streams are supported, not DM call streams.
+- Video is H264, one layer, at a constant frame rate, with no stream audio.
+- Lost packets are not resent, so a viewer skips incomplete frames until the next keyframe.
 
 ### Other bots' slash commands, buttons and select menus
 

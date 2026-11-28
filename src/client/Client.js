@@ -15,6 +15,7 @@ const ChannelManager = require('../managers/ChannelManager');
 const GuildManager = require('../managers/GuildManager');
 const PresenceManager = require('../managers/PresenceManager');
 const RelationshipManager = require('../managers/RelationshipManager');
+const StreamManager = require('../managers/StreamManager');
 const UserManager = require('../managers/UserManager');
 const ClientPresence = require('../structures/ClientPresence');
 const GuildPreview = require('../structures/GuildPreview');
@@ -105,6 +106,12 @@ class Client extends BaseClient {
      * @type {Collection<Snowflake, Call>}
      */
     this.calls = new Collection();
+
+    /**
+     * The Go Live streams this session created or watches, and going live (user accounts only)
+     * @type {StreamManager}
+     */
+    this.streams = new StreamManager(this);
 
     /**
      * The sweeping functions and their intervals used to periodically sweep caches
@@ -439,6 +446,7 @@ class Client extends BaseClient {
     this.relationships.cache.clear();
     this.presences.cache.clear();
     this.calls.clear();
+    this.streams._clear();
   }
 
   /**
