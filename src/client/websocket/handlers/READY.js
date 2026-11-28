@@ -21,9 +21,10 @@ module.exports = (client, { d: data }, shard) => {
     const recipients = channel.recipient_ids?.map(id => users.get(id) ?? { id }) ?? channel.recipients;
     client.channels._add({ ...channel, recipients });
   }
-  // A READY (also after a re-identify) is the full relationship and session state, so it replaces the caches.
+  // A READY (also after a re-identify) is the full relationship, session and settings state, so it replaces caches.
   client.relationships._setAll(data.relationships ?? []);
   client.user._setSessions(data.sessions ?? []);
+  client.user.settings._patch(data.user_settings_proto);
 
   for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;

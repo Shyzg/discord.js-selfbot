@@ -2,6 +2,7 @@
 
 const { Collection } = require('@discordjs/collection');
 const { Routes } = require('discord-api-types/v10');
+const ClientUserSettings = require('./ClientUserSettings');
 const User = require('./User');
 const { resolveImage } = require('../util/DataResolver');
 const { stripRequestBody } = require('../util/UserProperties');
@@ -30,6 +31,12 @@ class ClientUser extends User {
      * @type {Collection<string, ClientSession>}
      */
     this.sessions = new Collection();
+
+    /**
+     * The client user's synced account settings: status and custom status (user accounts only)
+     * @type {ClientUserSettings}
+     */
+    this.settings = new ClientUserSettings(client);
   }
 
   /**

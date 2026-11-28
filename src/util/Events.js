@@ -82,6 +82,7 @@
  * @property {string} TypingStart typingStart
  * @property {string} UserNoteUpdate userNoteUpdate
  * @property {string} UserPresenceUpdate userPresenceUpdate
+ * @property {string} UserSettingsUpdate userSettingsUpdate
  * @property {string} UserUpdate userUpdate
  * @property {string} VoiceChannelEffectSend voiceChannelEffectSend
  * @property {string} VoiceServerUpdate voiceServerUpdate
@@ -177,6 +178,7 @@ module.exports = {
   TypingStart: 'typingStart',
   UserNoteUpdate: 'userNoteUpdate',
   UserPresenceUpdate: 'userPresenceUpdate',
+  UserSettingsUpdate: 'userSettingsUpdate',
   UserUpdate: 'userUpdate',
   VoiceChannelEffectSend: 'voiceChannelEffectSend',
   VoiceServerUpdate: 'voiceServerUpdate',
