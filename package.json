@@ -68,6 +68,14 @@
     "tsd": "^0.33.0",
     "typescript": "^6.0.3"
   },
+  "peerDependencies": {
+    "@snazzah/davey": "^0.1.9"
+  },
+  "peerDependenciesMeta": {
+    "@snazzah/davey": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=24.22.3"
   }

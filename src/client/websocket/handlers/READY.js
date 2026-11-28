@@ -27,6 +27,8 @@ module.exports = (client, { d: data }, shard) => {
   client.user.settings._patch(data.user_settings_proto);
   // Calls that ended while disconnected must go; the ones still running come back as CALL_CREATE (AUTO_CALL_CONNECT).
   client.calls.clear();
+  // Streams belong to the old session: a new one never hears that they ended.
+  client.streams._clear('session_replaced');
 
   for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;

@@ -77,6 +77,9 @@
  * @property {string} StageInstanceCreate stageInstanceCreate
  * @property {string} StageInstanceDelete stageInstanceDelete
  * @property {string} StageInstanceUpdate stageInstanceUpdate
+ * @property {string} StreamCreate streamCreate
+ * @property {string} StreamDelete streamDelete
+ * @property {string} StreamUpdate streamUpdate
  * @property {string} ThreadCreate threadCreate
  * @property {string} ThreadDelete threadDelete
  * @property {string} ThreadListSync threadListSync
@@ -177,6 +180,9 @@ module.exports = {
   StageInstanceCreate: 'stageInstanceCreate',
   StageInstanceDelete: 'stageInstanceDelete',
   StageInstanceUpdate: 'stageInstanceUpdate',
+  StreamCreate: 'streamCreate',
+  StreamDelete: 'streamDelete',
+  StreamUpdate: 'streamUpdate',
   ThreadCreate: 'threadCreate',
   ThreadDelete: 'threadDelete',
   ThreadListSync: 'threadListSync',
