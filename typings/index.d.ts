@@ -883,6 +883,7 @@ export class Client<Ready extends boolean = boolean> extends BaseClient {
   ): AsyncEventIterator<Emitter extends Client ? ClientEvents[Event] : any[]>;
 
   public application: If<Ready, ClientApplication | null, null>;
+  public calls: Collection<Snowflake, Call>;
   public channels: ChannelManager;
   public get emojis(): BaseGuildEmojiManager;
   public guilds: GuildManager;
@@ -1134,6 +1135,7 @@ export class DMChannel extends BaseChannel {
   public get recipientId(): Snowflake;
   public recipientIds: Snowflake[];
   public get recipient(): User | null;
+  public get call(): Call | null;
   public type: ChannelType.DM;
   public fetch(force?: boolean): Promise<this>;
   public toString(): UserMention;
@@ -2067,6 +2069,7 @@ export class PartialGroupDMChannel extends BaseChannel {
   public name: string | null;
   public icon: string | null;
   public recipients: PartialRecipient[];
+  public get call(): Call | null;
   public ownerId: Snowflake | null;
   public iconURL(options?: ImageURLOptions): string | null;
   public fetchOwner(options?: BaseFetchOptions): Promise<User>;
@@ -3724,6 +3727,32 @@ export interface ClientUserSettingsEditOptions {
   customStatus?: CustomStatusData | null;
 }
 
+export class Call extends Base {
+  private constructor(client: Client<true>, data: unknown);
+  public channelId: Snowflake;
+  public get channel(): DMChannel | PartialGroupDMChannel | null;
+  public messageId: Snowflake | null;
+  public region: string | null;
+  public ringing: Snowflake[];
+  public unavailable: boolean;
+  public voiceStates: Collection<Snowflake, CallVoiceState>;
+  public ring(recipients?: readonly UserResolvable[]): Promise<this>;
+  public stopRinging(recipients?: readonly UserResolvable[]): Promise<this>;
+  public setRegion(region: string): Promise<this>;
+}
+
+export interface CallVoiceState {
+  userId: Snowflake;
+  channelId: Snowflake | null;
+  sessionId: string | null;
+  selfMute: boolean;
+  selfDeaf: boolean;
+  selfVideo: boolean;
+  streaming: boolean;
+  serverMute: boolean;
+  serverDeaf: boolean;
+}
+
 export class ReactionManager extends CachedManager<Snowflake | string, MessageReaction, MessageReactionResolvable> {
   private constructor(message: Message, iterable?: Iterable<RawMessageReactionData>);
   public message: Message;
@@ -4415,6 +4444,10 @@ export interface ClientEvents {
     newAutoModerationRule: AutoModerationRule,
   ];
   cacheSweep: [message: string];
+  callCreate: [call: Call];
+  callDelete: [call: Call];
+  callUpdate: [oldCall: Call, newCall: Call];
+  callVoiceStateUpdate: [oldState: CallVoiceState | null, newState: CallVoiceState, call: Call];
   channelCreate: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
   channelDelete: [channel: DMChannel | PartialGroupDMChannel | NonThreadGuildBasedChannel];
   channelPinsUpdate: [channel: TextBasedChannel, date: Date | null];
@@ -4704,6 +4737,10 @@ export enum Events {
   Warn = 'warn',
   Debug = 'debug',
   CacheSweep = 'cacheSweep',
+  CallCreate = 'callCreate',
+  CallDelete = 'callDelete',
+  CallUpdate = 'callUpdate',
+  CallVoiceStateUpdate = 'callVoiceStateUpdate',
   ShardDisconnect = 'shardDisconnect',
   ShardError = 'shardError',
   ShardReconnecting = 'shardReconnecting',

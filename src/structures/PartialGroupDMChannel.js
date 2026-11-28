@@ -104,6 +104,15 @@ class PartialGroupDMChannel extends BaseChannel {
   }
 
   /**
+   * The call in progress in this group DM, if any
+   * @type {?Call}
+   * @readonly
+   */
+  get call() {
+    return this.client.calls.get(this.id) ?? null;
+  }
+
+  /**
    * Fetches the owner of this Group DM Channel.
    * @param {BaseFetchOptions} [options] The options for fetching the user
    * @returns {Promise<User>}

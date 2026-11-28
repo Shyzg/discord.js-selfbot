@@ -25,6 +25,8 @@ module.exports = (client, { d: data }, shard) => {
   client.relationships._setAll(data.relationships ?? []);
   client.user._setSessions(data.sessions ?? []);
   client.user.settings._patch(data.user_settings_proto);
+  // Calls that ended while disconnected must go; the ones still running come back as CALL_CREATE (AUTO_CALL_CONNECT).
+  client.calls.clear();
 
   for (const [index, guild] of data.guilds.entries()) {
     guild.shardId = shard.id;

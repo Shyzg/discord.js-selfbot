@@ -1,12 +1,18 @@
 'use strict';
 
 const Action = require('./Action');
+const { callVoiceState } = require('../../structures/Call');
 const VoiceState = require('../../structures/VoiceState');
 const Events = require('../../util/Events');
 
 class VoiceStateUpdate extends Action {
   handle(data) {
     const client = this.client;
+    // No guild: a DM or group DM call. Its voice states live on the call, never in voiceStateUpdate.
+    if (!data.guild_id) {
+      this.handleCall(data);
+      return;
+    }
     const guild = client.guilds.cache.get(data.guild_id);
     if (guild) {
       // Update the state
@@ -43,6 +49,28 @@ class VoiceStateUpdate extends Action {
        */
       client.emit(Events.VoiceStateUpdate, oldState, newState);
     }
+  }
+
+  handleCall(data) {
+    const client = this.client;
+    // A leave carries no channel: find the call the user was in.
+    const call = client.calls.get(data.channel_id) ?? client.calls.find(cached => cached.voiceStates.has(data.user_id));
+    if (!call) return;
+    // Moving to this call also means leaving any other one.
+    for (const other of client.calls.values()) if (other !== call) other.voiceStates.delete(data.user_id);
+
+    const oldState = call.voiceStates.get(data.user_id) ?? null;
+    const newState = callVoiceState(data);
+    if (newState.channelId) call.voiceStates.set(data.user_id, newState);
+    else call.voiceStates.delete(data.user_id);
+    /**
+     * Emitted when someone joins, leaves or changes their voice state in a DM or group DM call (user accounts only).
+     * @event Client#callVoiceStateUpdate
+     * @param {?CallVoiceState} oldState The voice state before the update, `null` if the user just joined
+     * @param {CallVoiceState} newState The voice state after the update; `channelId` is `null` if the user left
+     * @param {Call} call The call
+     */
+    client.emit(Events.CallVoiceStateUpdate, oldState, newState, call);
   }
 }
 

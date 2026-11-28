@@ -95,6 +95,15 @@ class DMChannel extends BaseChannel {
   }
 
   /**
+   * The call in progress in this DM, if any (user accounts only)
+   * @type {?Call}
+   * @readonly
+   */
+  get call() {
+    return this.client.calls.get(this.id) ?? null;
+  }
+
+  /**
    * Fetch this DMChannel.
    * @param {boolean} [force=true] Whether to skip the cache check and request the API
    * @returns {Promise<DMChannel>}
