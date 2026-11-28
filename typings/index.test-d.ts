@@ -61,6 +61,8 @@ import {
   ButtonBuilder,
   ButtonComponent,
   ButtonComponentData,
+  Call,
+  CallVoiceState,
   CategoryChannel,
   CategoryChannelChildManager,
   Channel,
@@ -1745,5 +1747,32 @@ declare const scheduledEventManager: GuildScheduledEventManager;
   client.on('userSettingsUpdate', (oldSettings, newSettings) => {
     expectType<ClientUserSettings>(oldSettings);
     expectType<ClientUserSettings>(newSettings);
+  });
+}
+
+// User-account DM and group DM calls
+{
+  expectType<Collection<Snowflake, Call>>(client.calls);
+  expectType<Call | null>(dmChannel.call);
+  expectType<Call | null>(partialGroupDMChannel.call);
+  const call = client.calls.first();
+  if (call) {
+    expectType<Snowflake[]>(call.ringing);
+    expectType<Collection<Snowflake, CallVoiceState>>(call.voiceStates);
+    expectType<DMChannel | PartialGroupDMChannel | null>(call.channel);
+    expectType<Promise<Call>>(call.ring([user]));
+    expectType<Promise<Call>>(call.stopRinging());
+    expectType<Promise<Call>>(call.setRegion('rotterdam'));
+  }
+  client.on('callCreate', created => expectType<Call>(created));
+  client.on('callUpdate', (oldCall, newCall) => {
+    expectType<Call>(oldCall);
+    expectType<Call>(newCall);
+  });
+  client.on('callDelete', deleted => expectType<boolean>(deleted.unavailable));
+  client.on('callVoiceStateUpdate', (oldState, newState, voiceCall) => {
+    expectType<CallVoiceState | null>(oldState);
+    expectType<Snowflake | null>(newState.channelId);
+    expectType<Call>(voiceCall);
   });
 }

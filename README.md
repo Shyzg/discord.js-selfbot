@@ -16,6 +16,7 @@
 - Op-37 guild member list fetching and large-guild subscriptions, and group DM messaging
 - Friends and friend requests, friend presences, joining through invites, private notes, read state, and your real status across sessions
 - Synced account settings: status and custom status on every device
+- DM and group DM calls: who is in them, who is being rung, ringing and declining
 
 ## Installation
 
@@ -139,6 +140,22 @@ client.on(Events.UserSettingsUpdate, (oldSettings, newSettings) => {
 });
 ```
 
+### DM and group DM calls
+
+`client.calls` tracks the calls in your DMs and group DMs: who is in them and who is being rung. `ring()`, `stopRinging()` and `setRegion()` only work while a call is active. Joining a call's voice is not supported (Discord requires end-to-end encrypted voice there).
+
+```js
+client.on(Events.CallCreate, call => console.log(`call in ${call.channelId}, ringing ${call.ringing.length}`));
+
+client.on(Events.CallVoiceStateUpdate, (oldState, newState, call) => {
+  if (!oldState) console.log(`${newState.userId} joined the call in ${call.channelId}`);
+  else if (!newState.channelId) console.log(`${newState.userId} left`);
+});
+
+await dmChannel.call?.ring(); // ring everyone again
+await dmChannel.call?.stopRinging(); // decline an incoming call
+```
+
 ### Limiting memory on long-running accounts
 
 By default every channel keeps its last 200 messages in memory for as long as the client runs. To drop older ones, add a message sweeper (the default thread sweeper is kept). `messageDelete`, `messageUpdate`, and reaction events for a swept message only fire if you enable `Partials.Message`:
@@ -156,6 +173,7 @@ const client = new Client({
 - **No user embeds or components:** Sending embeds or components rejects with `MessageEmbedsUserAccount` / `MessageComponentsUserAccount` (webhooks can still send them).
 - **Status is left alone:** `client.presence.status` starts as `unknown`, so Discord keeps the status set in your other apps; `setActivity()` and `setAFK()` no longer switch you to online. Call `setStatus()` to pick one; `client.user.status` shows the status Discord settled on.
 - **Presences without a guild:** the overall presence of friends and DM recipients arrives as `userPresenceUpdate` (with `newPresence.guild === null`) and is cached in `client.presences`; `presenceUpdate` stays guild-only, so handlers ported from bots keep working. A friend in shared guilds also produces one `presenceUpdate` per guild.
+- **Call voice states:** voice states in DM and group DM calls have no guild, so they arrive as `callVoiceStateUpdate` and live in `call.voiceStates`; `voiceStateUpdate` stays guild-only.
 - **Group DMs:** `PartialGroupDMChannel` supports `send`, `sendTyping`, `fetch`, `delete`, `createMessageCollector`, and `awaitMessages`.
 - **Bot-only APIs removed:** Sharding (`ShardingManager`), interactions/modals/component collectors, application commands/emojis/entitlements/SKUs/subscriptions, `Client#generateInvite`, `bulkDelete`/`bulkDeletable`, `fetchActiveThreads`/`fetchActive`, `ThreadMemberManager#fetch`/`fetchMe`, `ThreadChannel#fetchOwner`, `VoiceStateManager#fetch`/`VoiceState#fetch`, and `members.list`/`members.search`.
 

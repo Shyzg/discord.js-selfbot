@@ -111,6 +111,7 @@ exports.BaseGuildVoiceChannel = require('./structures/BaseGuildVoiceChannel');
 exports.BaseRole = require('./structures/BaseRole');
 exports.ButtonBuilder = require('./structures/ButtonBuilder');
 exports.ButtonComponent = require('./structures/ButtonComponent');
+exports.Call = require('./structures/Call').Call;
 exports.CategoryChannel = require('./structures/CategoryChannel');
 exports.BaseChannel = require('./structures/BaseChannel').BaseChannel;
 exports.ClientApplication = require('./structures/ClientApplication');

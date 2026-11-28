@@ -101,6 +101,12 @@ class Client extends BaseClient {
     this.presences = new PresenceManager(this);
 
     /**
+     * The calls in progress in the client user's DMs and group DMs, keyed by channel id (user accounts only)
+     * @type {Collection<Snowflake, Call>}
+     */
+    this.calls = new Collection();
+
+    /**
      * The sweeping functions and their intervals used to periodically sweep caches
      * @type {Sweepers}
      */
@@ -432,6 +438,7 @@ class Client extends BaseClient {
     this.users.notes.clear();
     this.relationships.cache.clear();
     this.presences.cache.clear();
+    this.calls.clear();
   }
 
   /**

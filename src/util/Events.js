@@ -8,6 +8,10 @@
  * @property {string} AutoModerationRuleDelete autoModerationRuleDelete
  * @property {string} AutoModerationRuleUpdate autoModerationRuleUpdate
  * @property {string} CacheSweep cacheSweep
+ * @property {string} CallCreate callCreate
+ * @property {string} CallDelete callDelete
+ * @property {string} CallUpdate callUpdate
+ * @property {string} CallVoiceStateUpdate callVoiceStateUpdate
  * @property {string} ChannelCreate channelCreate
  * @property {string} ChannelDelete channelDelete
  * @property {string} ChannelPinsUpdate channelPinsUpdate
@@ -103,6 +107,10 @@ module.exports = {
   AutoModerationRuleDelete: 'autoModerationRuleDelete',
   AutoModerationRuleUpdate: 'autoModerationRuleUpdate',
   CacheSweep: 'cacheSweep',
+  CallCreate: 'callCreate',
+  CallDelete: 'callDelete',
+  CallUpdate: 'callUpdate',
+  CallVoiceStateUpdate: 'callVoiceStateUpdate',
   ChannelCreate: 'channelCreate',
   ChannelDelete: 'channelDelete',
   ChannelPinsUpdate: 'channelPinsUpdate',
