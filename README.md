@@ -17,6 +17,7 @@
 - Friends and friend requests, friend presences, joining through invites, private notes, read state, and your real status across sessions
 - Synced account settings: status and custom status on every device
 - DM and group DM calls: who is in them, who is being rung, ringing and declining
+- Other bots' slash commands, buttons, select menus and modals
 
 ## Installation
 
@@ -154,6 +155,31 @@ client.on(Events.CallVoiceStateUpdate, (oldState, newState, call) => {
 
 await dmChannel.call?.ring(); // ring everyone again
 await dmChannel.call?.stopRinging(); // decline an incoming call
+```
+
+### Other bots' slash commands, buttons and select menus
+
+Each call resolves with the bot's answer, matched to your interaction:
+
+- its reply;
+- for buttons and menus, the message after the bot edited it;
+- a `Modal` to fill in;
+- or `null` if none of these came in time.
+
+A deferred reply ("is thinking...") resolves once the bot fills it in, waiting up to a minute. Attachment options are not supported.
+
+```js
+import { Modal } from '@shyzg/discord.js-selfbot';
+
+// Options go in the command's order, or in one object by name; subcommands go in the name
+const reply = await channel.sendSlash(botId, 'help');
+await channel.sendSlash(botId, 'settings prefix set', '!');
+
+// Buttons and select menus on a bot's message, by custom id
+const answer = await message.clickButton('confirm');
+await message.selectMenu('color', ['red']);
+
+if (answer instanceof Modal) await answer.submit({ feedback: 'Great bot!' });
 ```
 
 ### Limiting memory on long-running accounts

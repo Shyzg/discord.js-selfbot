@@ -35,6 +35,14 @@
  * @property {'MessageNonceRequired'} MessageNonceRequired
  * @property {'MessageNonceType'} MessageNonceType
 
+ * @property {'InteractionApplicationNotFound'} InteractionApplicationNotFound
+ * @property {'InteractionCommandNotFound'} InteractionCommandNotFound
+ * @property {'InteractionCommandOption'} InteractionCommandOption
+ * @property {'InteractionComponentNotFound'} InteractionComponentNotFound
+ * @property {'InteractionSelectValues'} InteractionSelectValues
+ * @property {'InteractionFailed'} InteractionFailed
+ * @property {'InteractionTimeout'} InteractionTimeout
+
  * @property {'BanResolveId'} BanResolveId
  * @property {'FetchBanResolveId'} FetchBanResolveId
 
@@ -125,6 +133,14 @@ const keys = [
   'MessageNotFound',
   'MessageNonceRequired',
   'MessageNonceType',
+
+  'InteractionApplicationNotFound',
+  'InteractionCommandNotFound',
+  'InteractionCommandOption',
+  'InteractionComponentNotFound',
+  'InteractionSelectValues',
+  'InteractionFailed',
+  'InteractionTimeout',
 
   'BanResolveId',
   'FetchBanResolveId',

@@ -239,6 +239,7 @@ TextBasedChannel.applyToClass(ThreadOnlyChannel, true, [
   'lastPinAt',
   'sendTyping',
   'markRead',
+  'sendSlash',
   'createMessageCollector',
   'awaitMessages',
 ]);

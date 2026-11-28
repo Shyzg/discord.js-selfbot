@@ -133,6 +133,7 @@ import {
   MessageManager,
   MessageMentions,
   MessageReaction,
+  Modal,
   NewsChannel,
   type NonThreadGuildBasedChannel,
   Options,
@@ -1774,5 +1775,29 @@ declare const scheduledEventManager: GuildScheduledEventManager;
     expectType<CallVoiceState | null>(oldState);
     expectType<Snowflake | null>(newState.channelId);
     expectType<Call>(voiceCall);
+  });
+}
+
+// User-account interactions with other applications
+{
+  expectType<Promise<Message | Modal | null>>(textChannel.sendSlash(user, 'help'));
+  expectType<Promise<Message | Modal | null>>(dmChannel.sendSlash('123', 'settings set', { key: 'prefix' }, 2));
+  expectType<Promise<Message | Modal | null>>(threadChannel.sendSlash(user, 'ping'));
+  // @ts-expect-error forum and media channels have no messages to run commands in
+  forumChannel.sendSlash(user, 'help');
+  // @ts-expect-error slash commands run in a channel, not on a user
+  guildMember.sendSlash(user, 'help');
+
+  expectType<Promise<Message | Modal | null>>(message.clickButton('confirm'));
+  expectType<Promise<Message | Modal | null>>(message.selectMenu(stringSelectMenuComp, ['red', { id: '123' }]));
+  // @ts-expect-error the values go in an array
+  message.selectMenu('color', 'red');
+
+  message.clickButton('feedback').then(answer => {
+    if (answer instanceof Modal) {
+      expectType<string>(answer.customId);
+      expectType<Snowflake | null>(answer.applicationId);
+      expectType<Promise<Message | Modal | null>>(answer.submit({ feedback: 'great', tags: ['a', 'b'] }));
+    }
   });
 }

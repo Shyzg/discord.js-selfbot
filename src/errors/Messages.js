@@ -5,7 +5,7 @@ const DjsErrorCodes = require('./ErrorCodes');
 const Messages = {
   [DjsErrorCodes.ClientInvalidOption]: (prop, must) => `The ${prop} option must be ${must}`,
   [DjsErrorCodes.CaptchaRequired]: service =>
-    `A captcha (${service}) is required to log in; provide a \`captcha\` handler to normalLogin.`,
+    `Discord requires a captcha (${service}) for this request; pass a \`captcha\` handler to solve it.`,
   [DjsErrorCodes.MFARequired]: methods =>
     `Two-factor authentication is required (${methods}); provide an \`mfa\` handler to normalLogin.`,
   [DjsErrorCodes.RemoteAuthFailed]: reason => `Remote (QR) authentication failed: ${reason}.`,
@@ -38,6 +38,15 @@ const Messages = {
   [DjsErrorCodes.MessageNotFound]: 'Could not find the requested message.',
   [DjsErrorCodes.MessageNonceRequired]: 'Message nonce is required when enforceNonce is true.',
   [DjsErrorCodes.MessageNonceType]: 'Message nonce must be an integer or a string.',
+
+  [DjsErrorCodes.InteractionApplicationNotFound]: bot => `No application of the bot ${bot} is usable in this channel.`,
+  [DjsErrorCodes.InteractionCommandNotFound]: command => `No slash command "${command}" was found for this bot.`,
+  [DjsErrorCodes.InteractionCommandOption]: (option, problem) => `The command option "${option}" ${problem}.`,
+  [DjsErrorCodes.InteractionComponentNotFound]: customId =>
+    `This message has no enabled button or select menu with the custom id "${customId}".`,
+  [DjsErrorCodes.InteractionSelectValues]: problem => `Invalid select menu values: ${problem}.`,
+  [DjsErrorCodes.InteractionFailed]: reasonCode => `The interaction failed (reason code ${reasonCode}).`,
+  [DjsErrorCodes.InteractionTimeout]: 'The application did not respond to the interaction in time.',
 
   [DjsErrorCodes.BanResolveId]: (ban = false) => `Couldn't resolve the user id to ${ban ? 'ban' : 'unban'}.`,
   [DjsErrorCodes.FetchBanResolveId]: "Couldn't resolve the user id to fetch the ban.",
